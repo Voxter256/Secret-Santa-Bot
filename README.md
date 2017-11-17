@@ -28,18 +28,25 @@ python-telegram-bot
 ###### All Users
 `/start`  
 Sent only in a private message to begin personal setup. 
+
 `/hello`  
 Sent only in a group chat to enable the gift exchange. 
+
 `/join`  
 Joins you in the gift exchange in this chat.  
+
 `/not @Mention`  
 Prevents you from being paired up with this participant. 
+
 `/allow @Mention`  
-Removes block that was preventing you from being paired up with this participant.  
+Removes block that was preventing you from being paired up with this participant. 
+ 
 `/leave`  
 You will leave the gift exchange in this chat. 
+
 `/start_exchange`  
-Begins the gift exchange by assigning a recipient to every participant, then messaging them privately the details.  
+Begins the gift exchange by assigning a recipient to every participant, then messaging them privately the details.
+  
 `/reset_exchange`   
 Resets the gift exchange by removing every participant's assigned recipient.
 
