@@ -1,0 +1,2 @@
+python-telegram-bot==8.1.1
+sqlalchemy==1.1.15
