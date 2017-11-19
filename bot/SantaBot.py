@@ -29,8 +29,8 @@ class SantaBot:
         Participant()
 
         address_regex_string = \
-            "\d+[ ](?:[A-Za-z0-9.-]+[ ]?)+(?:Avenue|Lane|Road|Boulevard|Drive|Street|Ave|Dr|Rd|Blvd|Ln|St)" \
-            "\.?\s(?:[A-Z][a-z.-]+[ ]?)+,[ ](?:{Alabama|Alaska|Arizona|Arkansas|California|Colorado|" \
+            "\d+[ ](?:[A-Za-z0-9.#-]+[ ]?)+,?[ ](?:[A-Za-z-]+[ ]?)+,[ ]" \
+            "(?:{Alabama|Alaska|Arizona|Arkansas|California|Colorado|" \
             "Connecticut|Delaware|Florida|Georgia|Hawaii|Idaho|Illinois|Indiana|Iowa|Kansas|Kentucky|" \
             "Louisiana|Maine|Maryland|Massachusetts|Michigan|Minnesota|Mississippi|Missouri|Montana|" \
             "Nebraska|Nevada|New[ ]Hampshire|New[ ]Jersey|New[ ]Mexico|New[ ]York|North[ ]Carolina|" \
@@ -93,11 +93,12 @@ class SantaBot:
             this_participant = self.session.query(Participant).filter(Participant.telegram_id == user_id).first()
             print("This Participant: " + str(this_participant))
             if this_participant is None:
+                print("New Participant: " + str(user_id) + " " + str(user_username))
                 this_participant = Participant(telegram_id=user_id, telegram_username=user_username)
                 self.session.add(this_participant)
                 self.session.commit()
 
-            message = "Hello! What is your address? (Reply to the message to change it)"
+            message = "Hello! What is your address? (Reply to this message to change it)"
             bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
         except Exception as this_ex:
             print(this_ex)
@@ -129,22 +130,29 @@ class SantaBot:
             new_address = update.message.text
             original_user = update.message.reply_to_message.from_user
             original_text = update.message.reply_to_message.text
+            # print(original_user)
+            # print(original_text)
+            # print(new_address)
             if original_user.id == self.bot_id and \
-                    original_text == "Hello! What is your address? (Reply to the message to change it)":
+                    original_text == "Hello! What is your address? (Reply to this message to change it)":
                 address_match_object = self.address_re.match(new_address)
                 if address_match_object is not None:
+                    # print(address_match_object)
                     this_user = self.session.query(Participant).filter(
                         Participant.telegram_id == update.message.from_user.id).first()
+                    # print(this_user)
+                    # print(this_user.id)
                     address_filtered = address_match_object.group()
-                    print(address_filtered)
+                    # print(address_filtered)
                     this_user.address = address_filtered
                     self.session.commit()
-                    message = "OK, I have added your address as: " + address_filtered
+                    message = "OK, I have added your address as: " + address_filtered + "\n" \
+                        "You're ready to go in any Secret Santa group!"
                     update.message.reply_text(message)
                 else:
                     message = "This is not a valid Address. An example is: 350 Fifth Ave. New York, NY 10118"
                     update.message.reply_text(message)
-                    bot.send_message(chat_id=update.message.from_user.id, text="What is your address?",
+                    bot.send_message(chat_id=update.message.from_user.id, text="Hello! What is your address? (Reply to this message to change it)",
                                      reply_markup=ForceReply())
         except Exception as this_ex:
             print(this_ex)
@@ -202,7 +210,7 @@ class SantaBot:
             if this_participant.address is None:
                 message = "I need your address first! I am sending you a private message now."
                 update.message.reply_text(message)
-                message = "Hello! What is your address? (Reply to the message to change it)"
+                message = "Hello! What is your address? (Reply to this message to change it)"
                 bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
                 return
 
