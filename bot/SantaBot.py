@@ -396,12 +396,10 @@ class SantaBot:
                     .filter(Link.santa_id == santa.id, Group.telegram_id == update.message.chat.id).first()
                 santa_link.receiver_id = receiver.id
                 message = "You got " + receiver.telegram_username + "! Their address is: " + receiver.address
-                # TODO REMOVE
-                # if santa.id in [9]:
-                #     # print("send message to " + str(santa.telegram_id))
-                #     bot.send_message(chat_id=santa.telegram_id, text=message)
+                # print("send message to " + str(santa.telegram_id))
+                bot.send_message(chat_id=santa.telegram_id, text=message)
             self.session.commit()
-            message = "Messages have been sent! There were " + str(len(combinations)) + "potential combinations"
+            message = "Messages have been sent! There were " + str(len(combinations)) + " potential combinations"
             update.message.reply_text(message)
         except Exception as this_ex:
             print(this_ex)
