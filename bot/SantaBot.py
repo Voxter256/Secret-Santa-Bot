@@ -66,6 +66,7 @@ class SantaBot:
             CommandHandler('start', self.start),
             CommandHandler('help', self.help),
             CommandHandler('hello', self.hello),
+            CommandHandler('address', self.show_address),
             CommandHandler('join', self.join),
             CommandHandler('not', self.not_command),
             CommandHandler('allow', self.allow),
@@ -97,9 +98,13 @@ class SantaBot:
                 this_participant = Participant(telegram_id=user_id, telegram_username=user_username)
                 self.session.add(this_participant)
                 self.session.commit()
-
-            message = "Hello! What is your address? (Reply to this message to change it)"
-            bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
+                message = "Hello! Lets get you setup!"
+                bot.send_message(chat_id=this_participant.telegram_id, text=message)
+                message = "What is your address? (Reply to this message to change it)"
+                bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
+            else:
+                message = "You are already setup. I have your address as: \n" + this_participant.address
+                bot.send_message(chat_id=this_participant.telegram_id, text=message)
         except Exception as this_ex:
             print(this_ex)
 
@@ -110,6 +115,8 @@ class SantaBot:
                   "Sent only in a private message to begin personal setup. \n" \
                   "/hello \n" \
                   "Sent only in a group chat to enable the gift exchange. \n" \
+                  "/address \n" \
+                  "Sent only in a private message to show and update your address. \n" \
                   "/join \n" \
                   "Joins you in the gift exchange in this chat. \n" \
                   "/not @Mention \n" \
@@ -125,6 +132,31 @@ class SantaBot:
                   "Resets the gift exchange by removing every participant's assigned recipient."
         update.message.reply_text(message)
 
+    def show_address(self, bot, update):
+        try:
+            chat_type = update.message.chat.type
+            if chat_type != "private":
+                message = "You must send me this in a private chat"
+                update.message.reply_text(message)
+                return
+            user_id = update.message.from_user.id
+            user_username = update.message.from_user.username
+
+            this_participant = self.session.query(Participant).filter(Participant.telegram_id == user_id).first()
+            print("This Participant: " + str(this_participant))
+            if this_participant is None:
+                message = "Send me a /start in a private message, then follow the instructions!"
+                update.message.reply_text(message)
+                return
+            else:
+                message = "I currently have your address as: \n" + this_participant.address + "\n" \
+                    "If that is correct, you can ignore the following message."
+                bot.send_message(chat_id=this_participant.telegram_id, text=message)
+                message = "What is your address? (Reply to this message to change it)"
+                bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
+        except Exception as this_ex:
+            print(this_ex)
+
     def address(self, bot, update):
         try:
             new_address = update.message.text
@@ -134,7 +166,7 @@ class SantaBot:
             # print(original_text)
             # print(new_address)
             if original_user.id == self.bot_id and \
-                    original_text == "Hello! What is your address? (Reply to this message to change it)":
+                    original_text == "What is your address? (Reply to this message to change it)":
                 address_match_object = self.address_re.match(new_address)
                 if address_match_object is not None:
                     # print(address_match_object)
@@ -156,7 +188,8 @@ class SantaBot:
                 else:
                     message = "This is not a valid Address. An example is: 350 Fifth Ave. New York, NY 10118"
                     update.message.reply_text(message)
-                    bot.send_message(chat_id=update.message.from_user.id, text="Hello! What is your address? (Reply to this message to change it)",
+                    bot.send_message(chat_id=update.message.from_user.id,
+                                     text="What is your address? (Reply to this message to change it)",
                                      reply_markup=ForceReply())
         except Exception as this_ex:
             print(this_ex)
@@ -214,7 +247,7 @@ class SantaBot:
             if this_participant.address is None:
                 message = "I need your address first! I am sending you a private message now."
                 update.message.reply_text(message)
-                message = "Hello! What is your address? (Reply to this message to change it)"
+                message = "What is your address? (Reply to this message to change it)"
                 bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
                 return
 
