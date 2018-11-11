@@ -147,8 +147,11 @@ class SantaBot:
                     this_user.address = address_filtered
                     self.session.commit()
                     message = "OK, I have added your address as: " + address_filtered + "\n" \
-                        "You're ready to /join in any Secret Santa group!\n" \
-                        "Make sure this bot is a member of the group and someone has activated it with /hello"
+                        "You can now to use the /join command in any Telegram Secret Santa group!\n" \
+                        "A Telegram Secret Santa group only needs to be activated once.\n" \
+                        "To do so, I must be a member of a telegram group " \
+                        "and someone needs to activate me with the command /hello" \
+
                     update.message.reply_text(message)
                 else:
                     message = "This is not a valid Address. An example is: 350 Fifth Ave. New York, NY 10118"
