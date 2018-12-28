@@ -210,7 +210,6 @@ class SantaBot:
             user_username = update.message.from_user.username
 
             this_participant = self.session.query(Participant).filter(Participant.telegram_id == user_id).first()
-            print("start | This Participant id: " + str(this_participant.id))
             if this_participant is None:
                 print("New Participant. ID:" + str(user_id) + " Username:" + str(user_username))
                 this_participant = Participant(telegram_id=user_id, telegram_username=user_username)
@@ -223,6 +222,7 @@ class SantaBot:
             else:
                 message = self.message_strings[user_locality]["already_setup"] + this_participant.address
                 bot.send_message(chat_id=this_participant.telegram_id, text=message)
+            print("start | This Participant id: " + str(this_participant.id))
         except Exception as this_ex:
             print(this_ex)
             print(traceback.format_exc())
@@ -244,7 +244,6 @@ class SantaBot:
             user_username = update.message.from_user.username
 
             this_participant = self.session.query(Participant).filter(Participant.telegram_id == user_id).first()
-            print("show_address | This Participant id: " + str(this_participant.id))
             if this_participant is None:
                 message = self.message_strings[user_locality]["send_start"]
                 update.message.reply_text(message)
@@ -255,6 +254,7 @@ class SantaBot:
                 bot.send_message(chat_id=this_participant.telegram_id, text=message)
                 message = self.message_strings[user_locality]["address?"]
                 bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
+            print("show_address | This Participant id: " + str(this_participant.id))
         except Exception as this_ex:
             print(this_ex)
             print(traceback.format_exc())
@@ -331,6 +331,7 @@ class SantaBot:
             chat_type = update.message.chat.type
             print("Chat ID: " + str(chat_id))
             print("User ID: " + str(user_id))
+            print("User Local: " + update.message.from_user.language_code)
             print("Type of Chat: " + chat_type)
 
             if chat_type == "private":
