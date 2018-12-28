@@ -210,9 +210,9 @@ class SantaBot:
             user_username = update.message.from_user.username
 
             this_participant = self.session.query(Participant).filter(Participant.telegram_id == user_id).first()
-            print("This Participant: " + str(this_participant))
+            print("start | This Participant id: " + str(this_participant.id))
             if this_participant is None:
-                print("New Participant: " + str(user_id) + " " + str(user_username))
+                print("New Participant. ID:" + str(user_id) + " Username:" + str(user_username))
                 this_participant = Participant(telegram_id=user_id, telegram_username=user_username)
                 self.session.add(this_participant)
                 self.session.commit()
@@ -244,7 +244,7 @@ class SantaBot:
             user_username = update.message.from_user.username
 
             this_participant = self.session.query(Participant).filter(Participant.telegram_id == user_id).first()
-            print("This Participant: " + str(this_participant))
+            print("show_address | This Participant id: " + str(this_participant.id))
             if this_participant is None:
                 message = self.message_strings[user_locality]["send_start"]
                 update.message.reply_text(message)
@@ -299,7 +299,7 @@ class SantaBot:
 
             chat_id = update.message.chat.id
             group_exists = self.session.query(Group).filter(Group.telegram_id == chat_id).first()
-            print(group_exists)
+            print("hello | group_exists: " + str(group_exists))
             if not group_exists:
                 new_group = Group(telegram_id=chat_id)
                 self.session.add(new_group)
@@ -351,14 +351,12 @@ class SantaBot:
 
             this_link = self.session.query(Link).join(Group).filter(Group.telegram_id == chat_id,
                                                                     Link.santa_id == this_participant.id).first()
-            # print("This Link: " + str(this_link))
             if this_link is None:
                 this_group = self.session.query(Group).filter(Group.telegram_id == chat_id).first()
                 if this_group is None:
                     message = self.message_strings[user_locality]["say_hello"]
                     update.message.reply_text(message)
                     return
-                # print("This Group: " + str(this_group))
                 self.session.add(Link(santa_id=this_participant.id, group_id=this_group.id))
                 self.session.commit()
                 message = self.message_strings[user_locality]["in"]
@@ -374,10 +372,9 @@ class SantaBot:
         try:
             user_locality = self.get_locality(update.message.from_user)
             entities = update.message.parse_entities()
-            # print(entities)
             for entity, entity_text in entities.items():
                 entity_type = entity.type
-                print(entity_type)
+                print("not | entity type: " + str(entity_type))
                 if entity_type == "mention":
                     this_participant = self.session.query(Participant).filter(
                         Participant.telegram_id == update.message.from_user.id).first()
@@ -420,10 +417,9 @@ class SantaBot:
         try:
             user_locality = self.get_locality(update.message.from_user)
             entities = update.message.parse_entities()
-            # print(entities)
             for entity, entity_text in entities.items():
                 entity_type = entity.type
-                print(entity_type)
+                print("allow | entity_type: " + str(entity_type))
                 if entity_type == "mention":
                     this_participant = self.session.query(Participant).filter(
                         Participant.telegram_id == update.message.from_user.id).first()
@@ -515,9 +511,11 @@ class SantaBot:
             print(participant_dictionary)
 
             combinations = self.find_combinations(group_participants, participant_dictionary, [])
+            print("totals")
             print(len(combinations))
             print(combinations)
             choice = random.choice(combinations)
+            print("choice")
             print(choice)
 
             for santa in group_participants_objects:
@@ -531,7 +529,6 @@ class SantaBot:
                 santa_link.receiver_id = receiver.id
                 message = self.message_strings[user_locality]["you_got"] + receiver.telegram_username + \
                           self.message_strings[user_locality]["their_address_is"] + receiver.address
-                # print("send message to " + str(santa.telegram_id))
                 bot.send_message(chat_id=santa.telegram_id, text=message)
             self.session.commit()
             message = self.message_strings[user_locality]["messages_sent"] + str(len(combinations)) + \
@@ -555,18 +552,14 @@ class SantaBot:
         remaining_participants_copy = deepcopy(remaining_participants)
         this_participant = remaining_participants_copy.pop(0)
         these_combinations = []
-        # print("This Participant: " + str(this_participant))
         for option in participant_dictionary[this_participant]:
-            # print("This Option: " + str(option))
             if option in taken:
-                # print("Taken")
                 continue
             if len(remaining_participants_copy) > 0:
                 taken_copy = deepcopy(taken)
                 taken_copy.append(option)
                 child_combinations = self.find_combinations(
                     remaining_participants_copy, participant_dictionary, taken_copy)
-                # print("Up Level to: " + str(this_participant))
                 if len(child_combinations) > 0:
                     for new_combination_dictionary in child_combinations:
                         new_combination_dictionary[this_participant] = option
