@@ -1,5 +1,6 @@
 import re
 import random
+import traceback
 
 from configparser import ConfigParser
 from telegram.ext import Updater, CommandHandler, MessageHandler
@@ -107,6 +108,7 @@ class SantaBot:
                 bot.send_message(chat_id=this_participant.telegram_id, text=message)
         except Exception as this_ex:
             print(this_ex)
+            print(traceback.format_exc())
 
     @staticmethod
     def help(bot, update):
@@ -156,6 +158,7 @@ class SantaBot:
                 bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
         except Exception as this_ex:
             print(this_ex)
+            print(traceback.format_exc())
 
     def address(self, bot, update):
         try:
@@ -193,6 +196,7 @@ class SantaBot:
                                      reply_markup=ForceReply())
         except Exception as this_ex:
             print(this_ex)
+            print(traceback.format_exc())
 
     def hello(self, bot, update):
         try:
@@ -221,6 +225,7 @@ class SantaBot:
             return
         except Exception as this_ex:
             print(this_ex)
+            print(traceback.format_exc())
 
     def join(self, bot, update):
         try:
@@ -278,6 +283,7 @@ class SantaBot:
                 update.message.reply_text(message)
         except Exception as this_ex:
             print(this_ex)
+            print(traceback.format_exc())
 
     def not_command(self, bot, update):
         try:
@@ -322,6 +328,7 @@ class SantaBot:
             self.session.commit()
         except Exception as this_ex:
             print(this_ex)
+            print(traceback.format_exc())
 
     def allow(self, bot, update):
         try:
@@ -358,6 +365,7 @@ class SantaBot:
                         update.message.reply_text(message)
         except Exception as this_ex:
             print(this_ex)
+            print(traceback.format_exc())
 
     def leave(self, bot, update):
         try:
@@ -440,6 +448,7 @@ class SantaBot:
             update.message.reply_text(message)
         except Exception as this_ex:
             print(this_ex)
+            print(traceback.format_exc())
 
     def reset_exchange(self, bot, update):
         this_group_id = update.message.chat.id
