@@ -100,7 +100,7 @@ class SantaBot:
             "potential_combinations": " potential combinations",
             "pairings_reset": "All pairings have been reset",
 
-                }, "pt-BR": {
+                }, "pt-br": {
             "private_error": "Você deve me enviar isso em um bate-papo privado",
             "hello": "Olá! Vamos pegar sua configuração!",
             "address?": "Qual é o seu endereço? (Responda a esta mensagem para alterá-la)",
@@ -267,8 +267,18 @@ class SantaBot:
             original_text = update.message.reply_to_message.text
             if original_user.id == self.bot_id and \
                     original_text == self.message_strings[user_locality]["address?"]:
+                user_language_code = update.message.from_user.language_code
                 address_match_object = self.address_re.match(new_address)
-                if address_match_object is not None:
+                if user_language_code is not "en":
+                    this_user = self.session.query(Participant).filter(
+                        Participant.telegram_id == update.message.from_user.id).first()
+                    this_user.address = new_address
+                    self.session.commit()
+
+                    message = self.message_strings[user_locality]["address_confirmation"] + new_address + "\n" + \
+                              self.message_strings[user_locality]["post_confirm_instructions"]
+                    update.message.reply_text(message)
+                elif address_match_object is not None:
                     this_user = self.session.query(Participant).filter(
                         Participant.telegram_id == update.message.from_user.id).first()
                     address_filtered = address_match_object.group()
@@ -571,6 +581,6 @@ class SantaBot:
     @staticmethod
     def get_locality(user):
         locality = user.language_code
-        if locality not in ["en", "pt-BR"]:
+        if locality not in ["en", "pt-br"]:
             locality = "en"
         return locality
