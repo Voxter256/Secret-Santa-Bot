@@ -43,6 +43,81 @@ class SantaBot:
 
         self.address_re = re.compile(address_regex_string, re.IGNORECASE)
 
+        self.message_strings = {"en": {
+            "private_error": "You must send me this in a private chat",
+            "hello": "Hello! Lets get you setup!",
+            "address?": "What is your address? (Reply to this message to change it)",
+            "already_setup": "You are already set up. I have your address as: \n",
+            "help": "Command List: \n" +
+                "/start \n" +
+                "Sent only in a private message to begin personal setup. \n" +
+                "/hello \n" +
+                "Sent only in a group chat to enable the gift exchange. \n" +
+                "/address \n" +
+                "Sent only in a private message to show and update your address. \n" +
+                "/join \n" +
+                "Joins you in the gift exchange in this chat. \n" +
+                "/not @Mention \n" +
+                "Prevents you from being paired up with this participant. \n" +
+                "/allow @Mention \n" +
+                "Removes block that was preventing you from being paired up with this participant. \n" +
+                "/leave \n" +
+                "You will leave the gift exchange in this chat. \n" +
+                "/start_exchange \n" +
+                "Begins the gift exchange by assigning a recipient to every participant, then messaging them privately the details. \n" +
+                "/reset_exchange \n" +
+                "Resets the gift exchange by removing every participant's assigned recipient.",
+            "send_start": "Send me a /start in a private message, then follow the instructions!",
+            "current_address_1": "I currently have your address as: \n",
+            "current_address_2": "If that is correct, you can ignore the following message.",
+            "address_confirmation": "OK, I have added your address as: ",
+            "post_confirm_instructions": "You can now to use the /join command in any Telegram Secret Santa group!\n" +
+                "A Telegram Secret Santa group only needs to be activated once.\n" +
+                "To do so, I must be a member of a telegram group " +
+                "and someone needs to activate me with the command /hello",
+            "address_error": "This is not a valid Address. An example is: 350 Fifth Ave. New York, NY 10118",
+            "group_error": "You must begin from a group chat",
+            "hello_done": "Hello! This group chat now has the options of participating in a " +
+                       "Secret Santa Exchange! \n /join to participate",
+
+                }, "pt-BR": {
+            "private_error": "Você deve me enviar isso em um bate-papo privado",
+            "hello": "Olá! Vamos pegar sua configuração!",
+            "address?": "Qual é o seu endereço? (Responda a esta mensagem para alterá-la)",
+            "already_setup": "Você já está configurado. Eu tenho seu endereço como: \n",
+            "help": "Command List: \n" +
+                "/start \n" +
+                "Enviado apenas em uma mensagem privada para iniciar a configuração pessoal. \n" +
+                "/hello \n" +
+                "Enviado somente em um bate-papo em grupo para ativar a troca de presentes. \n" +
+                "/address \n" +
+                "Enviou apenas uma mensagem privada para mostrar e atualizar seu endereço. \n" +
+                "/join \n" +
+                "Junta-te a ti na troca de presentes neste chat. \n" +
+                "/not @Mention \n" +
+                "Impede que você seja emparelhado com este participante. \n" +
+                "/allow @Mention \n" +
+                "Remove o bloqueio que estava impedindo você de ser emparelhado com este participante. \n" +
+                "/leave \n" +
+                "Você vai deixar a troca de presentes neste chat. \n" +
+                "/start_exchange \n" +
+                "Começa a troca de presentes atribuindo um destinatário a cada participante, depois enviando os detalhes em particular. \n" +
+                "/reset_exchange \n" +
+                "Redefine a troca de presentes removendo o destinatário atribuído de cada participante.",
+            "send_start": "Envie - me um / start em uma mensagem privada e siga as instruções!",
+            "current_address_1": "Atualmente tenho seu endereço como: \n",
+            "current_address_2": "Se isso estiver correto, você pode ignorar a seguinte mensagem.",
+            "address_confirmation": "Eu adicionei seu endereço como: ",
+            "post_confirm_instructions": "Agora você pode usar o comando /join em qualquer grupo Telegram Secret Santa!\n" +
+                "Um grupo Telegram Secret Santa só precisa ser ativado uma vez.\n" +
+                "Para fazer isso, eu devo ser um membro de um grupo de telegramas " +
+                "e alguém precisa me ativar com o comando /hello",
+            "address_error": "Este não é um endereço válido. Um exemplo é: 350 Fifth Ave. New York, NY 10118",
+            "group_error": "Você deve começar de um bate-papo em grupo",
+            "hello_done": "Olá! Este bate-papo em grupo agora tem a opção de participar de um " +
+                          "Secret Santa Exchange! \n /join para participar",
+        }}
+
         self.session = Session()
 
     def read_config(self):
@@ -85,8 +160,9 @@ class SantaBot:
     def start(self, bot, update):
         try:
             chat_type = update.message.chat.type
+            user_locality = self.get_locality(update.message.from_user)
             if chat_type != "private":
-                message = "You must send me this in a private chat"
+                message = self.message_strings[user_locality]["private_error"]
                 update.message.reply_text(message)
                 return
             user_id = update.message.from_user.id
@@ -99,46 +175,28 @@ class SantaBot:
                 this_participant = Participant(telegram_id=user_id, telegram_username=user_username)
                 self.session.add(this_participant)
                 self.session.commit()
-                message = "Hello! Lets get you setup!"
+                message = self.message_strings[user_locality]["hello"]
                 bot.send_message(chat_id=this_participant.telegram_id, text=message)
-                message = "What is your address? (Reply to this message to change it)"
+                message = self.message_strings[user_locality]["address?"]
                 bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
             else:
-                message = "You are already setup. I have your address as: \n" + this_participant.address
+                message = self.message_strings[user_locality]["already_setup"] + this_participant.address
                 bot.send_message(chat_id=this_participant.telegram_id, text=message)
         except Exception as this_ex:
             print(this_ex)
             print(traceback.format_exc())
 
-    @staticmethod
-    def help(bot, update):
-        message = "Command List: \n" \
-                  "/start \n" \
-                  "Sent only in a private message to begin personal setup. \n" \
-                  "/hello \n" \
-                  "Sent only in a group chat to enable the gift exchange. \n" \
-                  "/address \n" \
-                  "Sent only in a private message to show and update your address. \n" \
-                  "/join \n" \
-                  "Joins you in the gift exchange in this chat. \n" \
-                  "/not @Mention \n" \
-                  "Prevents you from being paired up with this participant. \n" \
-                  "/allow @Mention \n" \
-                  "Removes block that was preventing you from being paired up with this participant. \n" \
-                  "/leave \n" \
-                  "You will leave the gift exchange in this chat. \n" \
-                  "/start_exchange \n" \
-                  "Begins the gift exchange by assigning a recipient to every participant, then " \
-                  "messaging them privately the details. \n" \
-                  "/reset_exchange \n" \
-                  "Resets the gift exchange by removing every participant's assigned recipient."
+    def help(self, bot, update):
+        user_locality = self.get_locality(update.message.from_user)
+        message = self.message_strings[user_locality]["help"]
         update.message.reply_text(message)
 
     def show_address(self, bot, update):
         try:
             chat_type = update.message.chat.type
+            user_locality = self.get_locality(update.message.from_user)
             if chat_type != "private":
-                message = "You must send me this in a private chat"
+                message = self.message_strings[user_locality]["private_error"]
                 update.message.reply_text(message)
                 return
             user_id = update.message.from_user.id
@@ -147,14 +205,14 @@ class SantaBot:
             this_participant = self.session.query(Participant).filter(Participant.telegram_id == user_id).first()
             print("This Participant: " + str(this_participant))
             if this_participant is None:
-                message = "Send me a /start in a private message, then follow the instructions!"
+                message = self.message_strings[user_locality]["send_start"]
                 update.message.reply_text(message)
                 return
             else:
-                message = "I currently have your address as: \n" + this_participant.address + "\n" \
-                    "If that is correct, you can ignore the following message."
+                message = self.message_strings[user_locality]["current_address_1"] + this_participant.address + "\n" + \
+                    self.message_strings[user_locality]["current_address_2"]
                 bot.send_message(chat_id=this_participant.telegram_id, text=message)
-                message = "What is your address? (Reply to this message to change it)"
+                message = self.message_strings[user_locality]["address?"]
                 bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
         except Exception as this_ex:
             print(this_ex)
@@ -162,37 +220,28 @@ class SantaBot:
 
     def address(self, bot, update):
         try:
+            user_locality = self.get_locality(update.message.from_user)
             new_address = update.message.text
             original_user = update.message.reply_to_message.from_user
             original_text = update.message.reply_to_message.text
-            # print(original_user)
-            # print(original_text)
-            # print(new_address)
             if original_user.id == self.bot_id and \
-                    original_text == "What is your address? (Reply to this message to change it)":
+                    original_text == self.message_strings[user_locality]["address?"]:
                 address_match_object = self.address_re.match(new_address)
                 if address_match_object is not None:
-                    # print(address_match_object)
                     this_user = self.session.query(Participant).filter(
                         Participant.telegram_id == update.message.from_user.id).first()
-                    # print(this_user)
-                    # print(this_user.id)
                     address_filtered = address_match_object.group()
-                    # print(address_filtered)
                     this_user.address = address_filtered
                     self.session.commit()
-                    message = "OK, I have added your address as: " + address_filtered + "\n" \
-                        "You can now to use the /join command in any Telegram Secret Santa group!\n" \
-                        "A Telegram Secret Santa group only needs to be activated once.\n" \
-                        "To do so, I must be a member of a telegram group " \
-                        "and someone needs to activate me with the command /hello" \
 
+                    message = self.message_strings[user_locality]["address_confirmation"] + address_filtered + "\n" + \
+                        self.message_strings[user_locality]["post_confirm_instructions"]
                     update.message.reply_text(message)
                 else:
-                    message = "This is not a valid Address. An example is: 350 Fifth Ave. New York, NY 10118"
+                    message = self.message_strings[user_locality]["address_error"]
                     update.message.reply_text(message)
                     bot.send_message(chat_id=update.message.from_user.id,
-                                     text="What is your address? (Reply to this message to change it)",
+                                     text=self.message_strings[user_locality]["address?"],
                                      reply_markup=ForceReply())
         except Exception as this_ex:
             print(this_ex)
@@ -200,27 +249,22 @@ class SantaBot:
 
     def hello(self, bot, update):
         try:
+            user_locality = self.get_locality(update.message.from_user)
             chat_type = update.message.chat.type
             if chat_type == "private":
-                message = "You must begin from a group chat"
+                message = self.message_strings[user_locality]["group_error"]
                 update.message.reply_text(message)
                 return
 
             chat_id = update.message.chat.id
             group_exists = self.session.query(Group).filter(Group.telegram_id == chat_id).first()
             print(group_exists)
-            if group_exists:
-                message = "Hello! This group chat has the options of participating in a Secret Santa Exchange! \n" \
-                      "/join to participate"
-                update.message.reply_text(message)
-                return
+            if not group_exists:
+                new_group = Group(telegram_id=chat_id)
+                self.session.add(new_group)
+                self.session.commit()
 
-            new_group = Group(telegram_id=chat_id)
-            self.session.add(new_group)
-            self.session.commit()
-
-            message = "Hello! This group chat now has the options of participating in a Secret Santa Exchange! \n" \
-                      "/join to participate"
+            message = self.message_strings[user_locality]["hello_done"]
             update.message.reply_text(message)
             return
         except Exception as this_ex:
@@ -229,6 +273,7 @@ class SantaBot:
 
     def join(self, bot, update):
         try:
+            user_locality = self.get_locality(update.message.from_user)
             chat_id = update.message.chat.id
             user_id = update.message.from_user.id
             user_username = update.message.from_user.username
@@ -238,12 +283,11 @@ class SantaBot:
             print("Type of Chat: " + chat_type)
 
             if chat_type == "private":
-                message = "You must join from a group chat"
+                message = self.message_strings[user_locality]["group_error"]
                 update.message.reply_text(message)
                 return
 
             this_participant = self.session.query(Participant).filter(Participant.telegram_id == user_id).first()
-            # print("This Participant: " + str(this_participant))
             if this_participant is None:
                 message = "Send me a /start in a private message, then follow the instructions!"
                 update.message.reply_text(message)
@@ -482,3 +526,10 @@ class SantaBot:
             else:
                 return [{this_participant: option}]
         return these_combinations
+
+    @staticmethod
+    def get_locality(user):
+        locality = user.language_code
+        if locality not in ["en", "pt-BR"]:
+            locality = "en"
+        return locality
