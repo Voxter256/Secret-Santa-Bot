@@ -78,7 +78,27 @@ class SantaBot:
             "address_error": "This is not a valid Address. An example is: 350 Fifth Ave. New York, NY 10118",
             "group_error": "You must begin from a group chat",
             "hello_done": "Hello! This group chat now has the options of participating in a " +
-                       "Secret Santa Exchange! \n /join to participate",
+                        "Secret Santa Exchange! \n /join to participate",
+            "start_private": "Send me a /start in a private message, then follow the instructions!",
+            "need_address": "I need your address first! I am sending you a private message now.",
+            "say_hello": "Someone must /hello first!",
+            "in": "OK, you're in!",
+            "already_joined": "You have already joined!",
+            "already_blocked_pairing": "This blocked pairing has already been added.",
+            "not_yourself": "Don't worry, you won't get yourself",
+            "block_successful": "OK, you can no longer matched with that participant.",
+            "allow_successful": "You can now be assigned to ",
+            "not_blocked": " was not blocked by you.",
+            "never_joined": "You never joined",
+            "done": "Done.",
+            "no_one_joined": "No one has Joined!",
+            "exchange_already_setup": "The exchange has already been setup!",
+            "pairing_impossible": "Pairing is impossible",
+            "you_got": "You got ",
+            "their_address_is": "! Their address is: ",
+            "messages_sent": "Messages have been sent! There were ",
+            "potential_combinations": " potential combinations",
+            "pairings_reset": "All pairings have been reset",
 
                 }, "pt-BR": {
             "private_error": "Você deve me enviar isso em um bate-papo privado",
@@ -116,6 +136,27 @@ class SantaBot:
             "group_error": "Você deve começar de um bate-papo em grupo",
             "hello_done": "Olá! Este bate-papo em grupo agora tem a opção de participar de um " +
                           "Secret Santa Exchange! \n /join para participar",
+            "start_private": "Envie-me um /start em uma mensagem privada e siga as instruções!",
+            "need_address": "Eu preciso do seu endereço primeiro! Estou enviando uma mensagem particular agora.",
+            "say_hello": "Alguém deve /hello primeiro!",
+            "in": "Você está dentro!",
+            "already_joined": "Você já se juntou!",
+            "already_blocked_pairing": "Este par bloqueado já foi adicionado.",
+            "not_yourself": "Não se preocupe, você não vai conseguir",
+            "block_successful": "OK, você não pode mais corresponder a esse participante.",
+            "allow_successful": "Agora você pode ser atribuído a ",
+            "not_blocked": " não foi bloqueado por você.",
+            "never_joined": "Você nunca se juntou",
+            "done": "Feito.",
+            "no_one_joined": "Ninguém se juntou!",
+            "exchange_already_setup": "A troca já foi configurada!",
+            "pairing_impossible": "O emparelhamento é impossível",
+            "you_got": "Você tem ",
+            "their_address_is": "! Seu endereço é: ",
+            "messages_sent": "Mensagens foram enviadas! Houve ",
+            "potential_combinations": " combinações potenciais",
+            "pairings_reset": "Todos os pares foram redefinidos",
+
         }}
 
         self.session = Session()
@@ -289,14 +330,14 @@ class SantaBot:
 
             this_participant = self.session.query(Participant).filter(Participant.telegram_id == user_id).first()
             if this_participant is None:
-                message = "Send me a /start in a private message, then follow the instructions!"
+                message = self.message_strings[user_locality]["start_private"]
                 update.message.reply_text(message)
                 return
 
             if this_participant.address is None:
-                message = "I need your address first! I am sending you a private message now."
+                message = self.message_strings[user_locality]["need_address"]
                 update.message.reply_text(message)
-                message = "What is your address? (Reply to this message to change it)"
+                message = self.message_strings[user_locality]["address?"]
                 bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
                 return
 
@@ -314,16 +355,16 @@ class SantaBot:
             if this_link is None:
                 this_group = self.session.query(Group).filter(Group.telegram_id == chat_id).first()
                 if this_group is None:
-                    message = "Someone must /hello first!"
+                    message = self.message_strings[user_locality]["say_hello"]
                     update.message.reply_text(message)
                     return
                 # print("This Group: " + str(this_group))
                 self.session.add(Link(santa_id=this_participant.id, group_id=this_group.id))
                 self.session.commit()
-                message = "OK, you're in!"
+                message = self.message_strings[user_locality]["in"]
                 update.message.reply_text(message)
             else:
-                message = "You have already joined!"
+                message = self.message_strings[user_locality]["already_joined"]
                 update.message.reply_text(message)
         except Exception as this_ex:
             print(this_ex)
@@ -331,6 +372,7 @@ class SantaBot:
 
     def not_command(self, bot, update):
         try:
+            user_locality = self.get_locality(update.message.from_user)
             entities = update.message.parse_entities()
             # print(entities)
             for entity, entity_text in entities.items():
@@ -351,10 +393,10 @@ class SantaBot:
                             self.session.add(
                                 BlockedLink(participant_id=this_participant.id, blocked_username=mentioned_participant))
                         else:
-                            message = "This blocked pairing has already been added."
+                            message = self.message_strings[user_locality]["already_blocked_pairing"]
                             update.message.reply_text(message)
                     elif participant_by_username.id == this_participant.id:
-                        message = "Don't worry, you won't get yourself"
+                        message = self.message_strings[user_locality]["not_yourself"]
                         update.message.reply_text(message)
                     else:
                         id_list = [this_participant.id, participant_by_username.id]
@@ -363,10 +405,10 @@ class SantaBot:
                         if in_blocked_list is None:
                             self.session.add(
                                 BlockedLink(participant_id=this_participant.id, blocked_id=participant_by_username.id))
-                            message = "OK, you can't be matched with that participant."
+                            message = self.message_strings[user_locality]["block_successful"]
                             update.message.reply_text(message)
                         else:
-                            message = "This blocked pairing has already been added."
+                            message = self.message_strings[user_locality]["already_blocked_pairing"]
                             update.message.reply_text(message)
 
             self.session.commit()
@@ -376,6 +418,7 @@ class SantaBot:
 
     def allow(self, bot, update):
         try:
+            user_locality = self.get_locality(update.message.from_user)
             entities = update.message.parse_entities()
             # print(entities)
             for entity, entity_text in entities.items():
@@ -402,10 +445,10 @@ class SantaBot:
                     if blocked_link is not None:
                         self.session.delete(blocked_link)
                         self.session.commit()
-                        message = "You can now be assigned to " + entity_text
+                        message = self.message_strings[user_locality]["allow_successful"] + entity_text
                         update.message.reply_text(message)
                     else:
-                        message = "You did not have " + entity_text + " blocked."
+                        message = entity_text + self.message_strings[user_locality]["not_blocked"]
                         update.message.reply_text(message)
         except Exception as this_ex:
             print(this_ex)
@@ -413,32 +456,34 @@ class SantaBot:
 
     def leave(self, bot, update):
         try:
+            user_locality = self.get_locality(update.message.from_user)
             # delete in memberships
             this_link = self.session.query(Link).join(Link.santa).join(Group)\
                 .filter(Participant.telegram_id == update.message.from_user.id,
                         Group.telegram_id == update.message.chat.id).first()
             if this_link is None:
-                message = "You never joined"
+                message = self.message_strings[user_locality]["never_joined"]
                 update.message.reply_text(message)
             else:
                 self.session.query()
                 self.session.delete(this_link)
                 self.session.commit()
-                message = "Done."
+                message = self.message_strings[user_locality]["done"]
                 update.message.reply_text(message)
         except Exception as this_ex:
             print(this_ex)
 
     def start_exchange(self, bot, update):
         try:
+            user_locality = self.get_locality(update.message.from_user)
             link_record_to_check = self.session.query(Link).join(Group).filter(
                 Group.telegram_id == update.message.chat.id).first()
             if link_record_to_check is None:
-                message = "No one has Joined!"
+                message = self.message_strings[user_locality]["no_one_joined"]
                 update.message.reply_text(message)
                 return
             if link_record_to_check.receiver_id is not None:
-                message = "The exchange has already been setup!"
+                message = self.message_strings[user_locality]["exchange_already_setup"]
                 update.message.reply_text(message)
                 return
 
@@ -463,7 +508,7 @@ class SantaBot:
                 participant_dictionary[blocked_id].remove(participant_id)
 
             if [] in participant_dictionary.values():
-                message = "Pairing is impossible"
+                message = self.message_strings[user_locality]["pairing_impossible"]
                 update.message.reply_text(message)
                 return
             participant_dictionary = OrderedDict(participant_dictionary)
@@ -484,23 +529,26 @@ class SantaBot:
                 santa_link = self.session.query(Link).join(Group)\
                     .filter(Link.santa_id == santa.id, Group.telegram_id == update.message.chat.id).first()
                 santa_link.receiver_id = receiver.id
-                message = "You got " + receiver.telegram_username + "! Their address is: " + receiver.address
+                message = self.message_strings[user_locality]["you_got"] + receiver.telegram_username + \
+                          self.message_strings[user_locality]["their_address_is"] + receiver.address
                 # print("send message to " + str(santa.telegram_id))
                 bot.send_message(chat_id=santa.telegram_id, text=message)
             self.session.commit()
-            message = "Messages have been sent! There were " + str(len(combinations)) + " potential combinations"
+            message = self.message_strings[user_locality]["messages_sent"] + str(len(combinations)) + \
+                      self.message_strings[user_locality]["potential_combinations"]
             update.message.reply_text(message)
         except Exception as this_ex:
             print(this_ex)
             print(traceback.format_exc())
 
     def reset_exchange(self, bot, update):
+        user_locality = self.get_locality(update.message.from_user)
         this_group_id = update.message.chat.id
         group_links = self.session.query(Link).join(Group).filter(Group.telegram_id == this_group_id)
         for group_link in group_links:
             group_link.receiver_id = None
         self.session.commit()
-        message = "All pairings have been reset"
+        message = self.message_strings[user_locality]["pairings_reset"]
         update.message.reply_text(message)
 
     def find_combinations(self, remaining_participants, participant_dictionary, taken):
