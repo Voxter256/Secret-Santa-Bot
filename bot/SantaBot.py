@@ -219,6 +219,9 @@ class SantaBot:
                 bot.send_message(chat_id=this_participant.telegram_id, text=message)
                 message = self.message_strings[user_locality]["address?"]
                 bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
+            elif this_participant.address is None:
+                message = self.message_strings[user_locality]["address?"]
+                bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
             else:
                 message = self.message_strings[user_locality]["already_setup"] + this_participant.address
                 bot.send_message(chat_id=this_participant.telegram_id, text=message)
