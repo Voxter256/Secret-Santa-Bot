@@ -1,3 +1,4 @@
+import os.path
 import re
 import random
 import traceback
@@ -164,7 +165,8 @@ class SantaBot:
 
     def read_config(self):
         config = ConfigParser()
-        config.read('config\\config.ini')
+        configPath = os.path.normpath('config/config.ini')
+        config.read(configPath)
         self.token = config.get('auth', 'token')
 
     def main(self):
