@@ -4,7 +4,8 @@ import random
 import traceback
 
 from configparser import ConfigParser
-from telegram.ext import Updater, CommandHandler, MessageHandler
+from telegram import Update
+from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackContext
 from telegram.ext.filters import Filters
 from telegram import ForceReply
 from sqlalchemy import or_
@@ -173,7 +174,7 @@ class SantaBot:
         self.token = config.get('auth', 'token')
 
     def main(self):
-        updater = Updater(token=self.token)
+        updater = Updater(self.token, use_context=True)
         self.bot_id = updater.bot.get_me().id
         print("Initialized with id: " + str(self.bot_id))
 
@@ -204,7 +205,7 @@ class SantaBot:
 
         updater.start_polling()
 
-    def start(self, bot, update):
+    def start(self, update: Update, context: CallbackContext):
         try:
             chat_type = update.message.chat.type
             user_locality = self.get_locality(update.message.from_user)
@@ -222,26 +223,26 @@ class SantaBot:
                 self.session.add(this_participant)
                 self.session.commit()
                 message = self.message_strings[user_locality]["hello"]
-                bot.send_message(chat_id=this_participant.telegram_id, text=message)
+                context.bot.send_message(chat_id=this_participant.telegram_id, text=message)
                 message = self.message_strings[user_locality]["address?"]
-                bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
+                context.bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
             elif this_participant.address is None:
                 message = self.message_strings[user_locality]["address?"]
-                bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
+                context.bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
             else:
                 message = self.message_strings[user_locality]["already_setup"] + this_participant.address
-                bot.send_message(chat_id=this_participant.telegram_id, text=message)
+                context.bot.send_message(chat_id=this_participant.telegram_id, text=message)
             print("start | This Participant id: " + str(this_participant.id))
         except Exception as this_ex:
             print(this_ex)
             print(traceback.format_exc())
 
-    def help(self, bot, update):
+    def help(self, update: Update, context: CallbackContext):
         user_locality = self.get_locality(update.message.from_user)
         message = self.message_strings[user_locality]["help"]
         update.message.reply_text(message)
 
-    def show_address(self, bot, update):
+    def show_address(self, update: Update, context: CallbackContext):
         try:
             chat_type = update.message.chat.type
             user_locality = self.get_locality(update.message.from_user)
@@ -250,7 +251,7 @@ class SantaBot:
                 update.message.reply_text(message)
                 return
             user_id = update.message.from_user.id
-            user_username = update.message.from_user.username
+            # user_username = update.message.from_user.username
 
             this_participant = self.session.query(Participant).filter(Participant.telegram_id == user_id).first()
             if this_participant is None:
@@ -260,15 +261,15 @@ class SantaBot:
             else:
                 message = self.message_strings[user_locality]["current_address_1"] + this_participant.address + "\n" + \
                     self.message_strings[user_locality]["current_address_2"]
-                bot.send_message(chat_id=this_participant.telegram_id, text=message)
+                context.bot.send_message(chat_id=this_participant.telegram_id, text=message)
                 message = self.message_strings[user_locality]["address?"]
-                bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
+                context.bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
             print("show_address | This Participant id: " + str(this_participant.id))
         except Exception as this_ex:
             print(this_ex)
             print(traceback.format_exc())
 
-    def address(self, bot, update):
+    def address(self, update: Update, context: CallbackContext):
         try:
             user_locality = self.get_locality(update.message.from_user)
             new_address = update.message.text
@@ -300,14 +301,14 @@ class SantaBot:
                 else:
                     message = self.message_strings[user_locality]["address_error"]
                     update.message.reply_text(message)
-                    bot.send_message(chat_id=update.message.from_user.id,
+                    context.bot.send_message(chat_id=update.message.from_user.id,
                                      text=self.message_strings[user_locality]["address?"],
                                      reply_markup=ForceReply())
         except Exception as this_ex:
             print(this_ex)
             print(traceback.format_exc())
 
-    def hello(self, bot, update):
+    def hello(self, update: Update, context: CallbackContext):
         try:
             user_locality = self.get_locality(update.message.from_user)
             chat_type = update.message.chat.type
@@ -331,7 +332,7 @@ class SantaBot:
             print(this_ex)
             print(traceback.format_exc())
 
-    def join(self, bot, update):
+    def join(self, update: Update, context: CallbackContext):
         try:
             user_locality = self.get_locality(update.message.from_user)
             chat_id = update.message.chat.id
@@ -358,7 +359,7 @@ class SantaBot:
                 message = self.message_strings[user_locality]["need_address"]
                 update.message.reply_text(message)
                 message = self.message_strings[user_locality]["address?"]
-                bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
+                context.bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
                 return
 
             # Check to see if there is a BlockedLink waiting, if so update it
@@ -388,7 +389,7 @@ class SantaBot:
             print(this_ex)
             print(traceback.format_exc())
 
-    def not_command(self, bot, update):
+    def not_command(self, update: Update, context: CallbackContext):
         try:
             user_locality = self.get_locality(update.message.from_user)
             entities = update.message.parse_entities()
@@ -433,7 +434,7 @@ class SantaBot:
             print(this_ex)
             print(traceback.format_exc())
 
-    def allow(self, bot, update):
+    def allow(self, update: Update, context: CallbackContext):
         try:
             user_locality = self.get_locality(update.message.from_user)
             entities = update.message.parse_entities()
@@ -470,7 +471,7 @@ class SantaBot:
             print(this_ex)
             print(traceback.format_exc())
 
-    def leave(self, bot, update):
+    def leave(self, update: Update, context: CallbackContext):
         try:
             user_locality = self.get_locality(update.message.from_user)
             # delete in memberships
@@ -489,7 +490,7 @@ class SantaBot:
         except Exception as this_ex:
             print(this_ex)
 
-    def start_exchange(self, bot, update):
+    def start_exchange(self, update: Update, context: CallbackContext):
         try:
             user_locality = self.get_locality(update.message.from_user)
             link_record_to_check = self.session.query(Link).join(Group).filter(
@@ -548,17 +549,17 @@ class SantaBot:
                     .filter(Link.santa_id == santa.id, Group.telegram_id == update.message.chat.id).first()
                 santa_link.receiver_id = receiver.id
                 message = self.message_strings[user_locality]["you_got"] + receiver.telegram_username + \
-                          self.message_strings[user_locality]["their_address_is"] + receiver.address
-                bot.send_message(chat_id=santa.telegram_id, text=message)
+                    self.message_strings[user_locality]["their_address_is"] + receiver.address
+                context.bot.send_message(chat_id=santa.telegram_id, text=message)
             self.session.commit()
             message = self.message_strings[user_locality]["messages_sent"] + str(len(combinations)) + \
-                      self.message_strings[user_locality]["potential_combinations"]
+                self.message_strings[user_locality]["potential_combinations"]
             update.message.reply_text(message)
         except Exception as this_ex:
             print(this_ex)
             print(traceback.format_exc())
 
-    def reset_exchange(self, bot, update):
+    def reset_exchange(self, update: Update, context: CallbackContext):
         user_locality = self.get_locality(update.message.from_user)
         this_group_id = update.message.chat.id
         group_links = self.session.query(Link).join(Group).filter(Group.telegram_id == this_group_id)
