@@ -52,23 +52,24 @@ class SantaBot:
             "already_setup": "You are already set up. I have your address as: \n",
             "help": "Command List: \n" +
                 "/start \n" +
-                "Sent only in a private message to begin personal setup. \n" +
+                    "Sent only in a private message to begin personal setup. \n" +
                 "/hello \n" +
-                "Sent only in a group chat to enable the gift exchange. \n" +
+                    "Sent only in a group chat to enable the gift exchange. \n" +
                 "/address \n" +
-                "Sent only in a private message to show and update your address. \n" +
+                    "Sent only in a private message to show and update your address. \n" +
                 "/join \n" +
-                "Joins you in the gift exchange in this chat. \n" +
+                    "Joins you in the gift exchange in this chat. \n" +
                 "/not @Mention \n" +
-                "Prevents you from being paired up with this participant. \n" +
+                    "Prevents you from being paired up with this participant. \n" +
                 "/allow @Mention \n" +
-                "Removes block that was preventing you from being paired up with this participant. \n" +
+                    "Removes block that was preventing you from being paired up with this participant. \n" +
                 "/leave \n" +
-                "You will leave the gift exchange in this chat. \n" +
+                    "You will leave the gift exchange in this chat. \n" +
                 "/start_exchange \n" +
-                "Begins the gift exchange by assigning a recipient to every participant, then messaging them privately the details. \n" +
+                    "Begins the gift exchange by assigning a recipient to every participant, "
+                    "then messaging them privately the details. \n" +
                 "/reset_exchange \n" +
-                "Resets the gift exchange by removing every participant's assigned recipient.",
+                    "Resets the gift exchange by removing every participant's assigned recipient.",
             "send_start": "Send me a /start in a private message, then follow the instructions!",
             "current_address_1": "I currently have your address as: \n",
             "current_address_2": "If that is correct, you can ignore the following message.",
@@ -109,28 +110,30 @@ class SantaBot:
             "already_setup": "Você já está configurado. Eu tenho seu endereço como: \n",
             "help": "Command List: \n" +
                 "/start \n" +
-                "Enviado apenas em uma mensagem privada para iniciar a configuração pessoal. \n" +
+                    "Enviado apenas em uma mensagem privada para iniciar a configuração pessoal. \n" +
                 "/hello \n" +
-                "Enviado somente em um bate-papo em grupo para ativar a troca de presentes. \n" +
+                    "Enviado somente em um bate-papo em grupo para ativar a troca de presentes. \n" +
                 "/address \n" +
-                "Enviou apenas uma mensagem privada para mostrar e atualizar seu endereço. \n" +
+                    "Enviou apenas uma mensagem privada para mostrar e atualizar seu endereço. \n" +
                 "/join \n" +
-                "Junta-te a ti na troca de presentes neste chat. \n" +
+                    "Junta-te a ti na troca de presentes neste chat. \n" +
                 "/not @Mention \n" +
-                "Impede que você seja emparelhado com este participante. \n" +
+                    "Impede que você seja emparelhado com este participante. \n" +
                 "/allow @Mention \n" +
-                "Remove o bloqueio que estava impedindo você de ser emparelhado com este participante. \n" +
+                    "Remove o bloqueio que estava impedindo você de ser emparelhado com este participante. \n" +
                 "/leave \n" +
-                "Você vai deixar a troca de presentes neste chat. \n" +
+                    "Você vai deixar a troca de presentes neste chat. \n" +
                 "/start_exchange \n" +
-                "Começa a troca de presentes atribuindo um destinatário a cada participante, depois enviando os detalhes em particular. \n" +
+                    "Começa a troca de presentes atribuindo um destinatário a cada participante, "
+                    "depois enviando os detalhes em particular. \n" +
                 "/reset_exchange \n" +
                 "Redefine a troca de presentes removendo o destinatário atribuído de cada participante.",
             "send_start": "Envie - me um / start em uma mensagem privada e siga as instruções!",
             "current_address_1": "Atualmente tenho seu endereço como: \n",
             "current_address_2": "Se isso estiver correto, você pode ignorar a seguinte mensagem.",
             "address_confirmation": "Eu adicionei seu endereço como: ",
-            "post_confirm_instructions": "Agora você pode usar o comando /join em qualquer grupo Telegram Secret Santa!\n" +
+            "post_confirm_instructions":
+                "Agora você pode usar o comando /join em qualquer grupo Telegram Secret Santa!\n" +
                 "Um grupo Telegram Secret Santa só precisa ser ativado uma vez.\n" +
                 "Para fazer isso, eu devo ser um membro de um grupo de telegramas " +
                 "e alguém precisa me ativar com o comando /hello",
