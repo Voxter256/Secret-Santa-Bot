@@ -11,11 +11,11 @@ from sqlalchemy import or_
 from collections import OrderedDict
 from copy import deepcopy
 
-from .Base import Session
-from .models.BlockedLinks import BlockedLink
-from .models.Group import Group
-from .models.Link import Link
-from .models.Participant import Participant
+from bot.Base import Session
+from bot.models.BlockedLinks import BlockedLink
+from bot.models.Group import Group
+from bot.models.Link import Link
+from bot.models.Participant import Participant
 
 
 class SantaBot:
