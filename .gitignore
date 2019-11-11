@@ -1,5 +1,12 @@
-# PatchNotesBot
+# Bot
 config/config.ini
+
+# Visual Studio Code
+.vscode
+
+# Atom
+.floo
+.flooignore
 
 # Compiled source #
 ###################
