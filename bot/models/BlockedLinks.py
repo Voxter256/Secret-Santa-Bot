@@ -11,7 +11,7 @@ class BlockedLink(Base):
 
     id = Column(Integer(), primary_key=True)
     participant_id = Column(Integer, ForeignKey('participants.id'), index=True)
-    blocked_username = Column(String, index=True, nullable=True)
+    blocked_username = Column(String(32), index=True, nullable=True)
     blocked_id = Column(Integer, ForeignKey('participants.id'), index=True, nullable=True)
 
     blocker = relationship("Participant", uselist=False, backref=backref('blocker_link'), foreign_keys=participant_id)

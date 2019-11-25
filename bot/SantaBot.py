@@ -1,11 +1,12 @@
+import json
 import os.path
 import re
 import random
 import traceback
 
 from configparser import ConfigParser
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackContext
+from telegram import Bot, Update
+from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackContext, Dispatcher
 from telegram.ext.filters import Filters
 from telegram import ForceReply
 from sqlalchemy import or_
@@ -22,8 +23,11 @@ from bot.models.Participant import Participant
 class SantaBot:
     def __init__(self):
         self.token = None
-        self.bot_id = None
         self.read_config()
+        try:
+            self.bot_id = int(self.token.split(":")[0])
+        except:
+           self.bot_id = None
 
         # create dummy DB Models so backrefs work
         BlockedLink()
@@ -167,16 +171,29 @@ class SantaBot:
 
         self.session = Session()
 
+        self.bot = Bot(self.token)
+        self.dispatcher = Dispatcher(self.bot, None, workers=0, use_context=True)
+        self.main()  # temporarily used to add command handlers
+
     def read_config(self):
         config = ConfigParser()
         configPath = os.path.normpath('config/config.ini')
         config.read(configPath)
         self.token = config.get('auth', 'token')
 
+    def process_message(self, updateText):
+        print('incoming message')
+        print(updateText)
+        decodedUpdate = Update.de_json(updateText, self.bot)
+        self.dispatcher.process_update(decodedUpdate)
+        self.session.close()
+
+    
     def main(self):
-        updater = Updater(self.token, use_context=True)
-        self.bot_id = updater.bot.get_me().id
-        print("Initialized with id: " + str(self.bot_id))
+        # updater = Updater(self.token, use_context=True)
+        
+        # self.bot_id = updater.bot.get_me().id
+        # print("Initialized with id: " + str(self.bot_id))
 
         # /begin : begins secret santa based on chat room; output instructions
         # /join : join secret santa based on chat room
@@ -184,7 +201,7 @@ class SantaBot:
         # /leave : leave secret santa
         # /start : randomize participants and message individually
 
-        dispatcher = updater.dispatcher
+        # dispatcher = updater.dispatcher
 
         handlers = [
             CommandHandler('start', self.start),
@@ -201,9 +218,9 @@ class SantaBot:
         ]
 
         for handler in handlers:
-            dispatcher.add_handler(handler)
+            self.dispatcher.add_handler(handler)
 
-        updater.start_polling()
+        # updater.start_polling()
 
     def start(self, update: Update, context: CallbackContext):
         try:

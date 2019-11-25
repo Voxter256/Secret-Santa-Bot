@@ -1,5 +1,6 @@
 # Bot
 config/config.ini
+package/*
 
 # Visual Studio Code
 .vscode
