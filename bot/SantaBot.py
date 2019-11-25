@@ -1,12 +1,9 @@
-import json
-import os.path
 import re
 import random
 import traceback
 
-from configparser import ConfigParser
-from telegram import Bot, Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackContext, Dispatcher
+from telegram import Update
+from telegram.ext import CommandHandler, MessageHandler, CallbackContext
 from telegram.ext.filters import Filters
 from telegram import ForceReply
 from sqlalchemy import or_
