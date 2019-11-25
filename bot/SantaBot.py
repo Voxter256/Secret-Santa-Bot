@@ -10,7 +10,6 @@ from sqlalchemy import or_
 from collections import OrderedDict
 from copy import deepcopy
 
-from bot.Base import Session
 from bot.models.BlockedLinks import BlockedLink
 from bot.models.Group import Group
 from bot.models.Link import Link
@@ -18,13 +17,15 @@ from bot.models.Participant import Participant
 
 
 class SantaBot:
-    def __init__(self):
+    def __init__(self, dbConnection):
 
         # create dummy DB Models so backrefs work
         BlockedLink()
         Group()
         Link()
         Participant()
+
+        self.session = dbConnection.session
 
         address_regex_string = r"""
             \d+[ ](?:[A-Za-z0-9.#-]+[ ]?)+,?[ ](?:[A-Za-z-]+[ ]?)+,[ ]
@@ -176,8 +177,6 @@ class SantaBot:
             CommandHandler('reset_exchange', self.reset_exchange),
             MessageHandler(Filters.reply & Filters.text, self.address)
         ]
-
-        self.session = Session()
 
     def start(self, update: Update, context: CallbackContext):
         try:

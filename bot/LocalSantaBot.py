@@ -8,7 +8,8 @@ from bot.SantaBot import SantaBot
 
 
 class LocalSantaBot(SantaBot):
-    def __init__(self):
+    def __init__(self, dbConnection):
+        super().__init__(dbConnection)
         self.read_config()
         try:
             self.bot_id = int(self.token.split(":")[0])

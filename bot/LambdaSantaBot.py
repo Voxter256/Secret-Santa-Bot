@@ -8,8 +8,8 @@ from bot.SantaBot import SantaBot
 
 
 class LambdaSantaBot(SantaBot):
-    def __init__(self):
-        super().__init__(self)
+    def __init__(self, dbConnection):
+        super().__init__(self, dbConnection)
         self.read_config()  # TODO Replace with Environment Variables
         try:
             self.bot_id = int(self.token.split(":")[0])
