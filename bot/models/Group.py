@@ -1,9 +1,6 @@
 from sqlalchemy import Column, Integer
 
-from bot.Base import Base, Session
-
-session = Session()
-
+from bot.Base import Base
 
 class Group(Base):
     __tablename__ = 'groups'

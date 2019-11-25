@@ -1,10 +1,7 @@
 from sqlalchemy import Column, Integer, ForeignKey
 from sqlalchemy.orm import relationship, backref
 
-from bot.Base import Base, Session
-
-session = Session()
-
+from bot.Base import Base
 
 class Link(Base):
     __tablename__ = 'links'

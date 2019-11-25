@@ -1,9 +1,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship, backref
 
-from bot.Base import Base, Session
-
-session = Session()
+from bot.Base import Base
 
 
 class BlockedLink(Base):
