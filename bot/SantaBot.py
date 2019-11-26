@@ -489,13 +489,16 @@ class SantaBot:
             participant_dictionary = {}
             for this_participant in group_participants:
                 participant_dictionary[this_participant] = deepcopy(group_participants)
-                participant_dictionary[this_participant].pop(this_participant, None)
+                if this_participant in participant_dictionary[this_participant]:
+                    participant_dictionary[this_participant].remove(this_participant)
 
             for blocked_exchange in group_blocked_exchange:
                 participant_id = blocked_exchange.participant_id
                 blocked_id = blocked_exchange.blocked_id
-                participant_dictionary[participant_id].pop(blocked_id, None)
-                participant_dictionary[blocked_id].pop(participant_id, None)
+                if blocked_id in participant_dictionary[participant_id]:
+                    participant_dictionary[participant_id].remove(blocked_id)
+                if participant_id in participant_dictionary[blocked_id]:
+                    participant_dictionary[blocked_id].remove(participant_id)
 
             if [] in participant_dictionary.values():
                 message = self.message_strings[user_locality]["pairing_impossible"]
