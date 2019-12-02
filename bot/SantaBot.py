@@ -232,7 +232,7 @@ class SantaBot:
                 update.message.reply_text(message)
                 return
             else:
-                message = self.message_strings[user_locality]["current_address_1"] + this_participant.address + "\n" + \
+                message = self.message_strings[user_locality]["current_address_1"] + str(this_participant.address) + "\n" + \
                     self.message_strings[user_locality]["current_address_2"]
                 context.bot.send_message(chat_id=this_participant.telegram_id, text=message)
                 message = self.message_strings[user_locality]["address?"]
@@ -314,6 +314,7 @@ class SantaBot:
             chat_type = update.message.chat.type
             print("Chat ID: " + str(chat_id))
             print("User ID: " + str(user_id))
+            if update.message.from_user.language_code:
             print("User Local: " + update.message.from_user.language_code)
             print("Type of Chat: " + chat_type)
 
@@ -364,11 +365,12 @@ class SantaBot:
 
     def not_command(self, update: Update, context: CallbackContext):
         try:
+            print("{}: not".format(update.message.from_user.name))
             user_locality = self.get_locality(update.message.from_user)
             entities = update.message.parse_entities()
             for entity, entity_text in entities.items():
                 entity_type = entity.type
-                print("not | entity type: " + str(entity_type))
+                print("not | entity type: {}".format(str(entity_type)))
                 if entity_type == "mention":
                     this_participant = self.session.query(Participant).filter(
                         Participant.telegram_id == update.message.from_user.id).first()
