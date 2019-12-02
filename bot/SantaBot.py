@@ -401,7 +401,29 @@ class SantaBot:
                         else:
                             message = self.message_strings[user_locality]["already_blocked_pairing"]
                             update.message.reply_text(message)
+                elif entity_type == "text_mention":
+                    this_participant = self.session.query(Participant).filter(
+                        Participant.telegram_id == update.message.from_user.id).first()
 
+                    mentioned_user = entity.user
+                    mentioned_participant = self.session.query(Participant).filter(
+                        Participant.telegram_id == mentioned_user.id).first()
+                    if mentioned_participant is None:
+                        message = self.message_strings[user_locality]["user_hasnt_joined"]
+                        update.message.reply_text(message)
+                    else:
+                        id_list = [this_participant.id, mentioned_participant.id]
+                        in_blocked_list = self.session.query(BlockedLink).filter(
+                            BlockedLink.participant_id.in_(id_list), BlockedLink.blocked_id.in_(id_list)).first()
+                        if in_blocked_list is None:
+                            self.session.add(
+                                BlockedLink(participant_id=this_participant.id, blocked_id=mentioned_participant.id))
+                            message = self.message_strings[user_locality]["block_successful"]
+                            update.message.reply_text(message)
+                        else:
+                            message = self.message_strings[user_locality]["already_blocked_pairing"]
+                            update.message.reply_text(message)
+                    
             self.session.commit()
         except Exception as this_ex:
             print(this_ex)
@@ -420,18 +442,40 @@ class SantaBot:
 
                     mentioned_participant = entity_text[1:]
 
-                    participant_by_username = self.session.query(Participant).filter(
+                    mentioned_participant = self.session.query(Participant).filter(
                         Participant.telegram_username == mentioned_participant).first()
-                    if participant_by_username is None:
+                    if mentioned_participant is None:
                         blocked_id = 0
                     else:
-                        blocked_id = participant_by_username.id
+                        blocked_id = mentioned_participant.id
 
                     blocked_link = self.session.query(BlockedLink).join(BlockedLink.blocked, isouter=True)\
                         .filter(BlockedLink.participant_id == this_participant.id)\
                         .filter(or_(
                             BlockedLink.blocked_username == mentioned_participant,
                             BlockedLink.blocked_id == blocked_id)).first()
+                    if blocked_link is not None:
+                        self.session.delete(blocked_link)
+                        self.session.commit()
+                        message = self.message_strings[user_locality]["allow_successful"] + entity_text
+                        update.message.reply_text(message)
+                    else:
+                        message = entity_text + self.message_strings[user_locality]["not_blocked"]
+                        update.message.reply_text(message)
+                elif entity_type == "text_mention":
+                    this_participant = self.session.query(Participant).filter(
+                        Participant.telegram_id == update.message.from_user.id).first()
+
+                    mentioned_user = entity.user
+                    mentioned_participant = self.session.query(Participant).filter(
+                        Participant.telegram_id == mentioned_user.id).first()
+                    if mentioned_participant is None:
+                        blocked_link = None
+                    else:
+                        blocked_link = self.session.query(BlockedLink).join(BlockedLink.blocked, isouter=True)\
+                            .filter(BlockedLink.participant_id == this_participant.id)\
+                            .filter(BlockedLink.blocked_id == mentioned_participant.id).first()
+
                     if blocked_link is not None:
                         self.session.delete(blocked_link)
                         self.session.commit()
