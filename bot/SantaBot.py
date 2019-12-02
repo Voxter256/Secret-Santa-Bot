@@ -1,14 +1,14 @@
-import re
 import random
+import re
 import traceback
-
-from telegram import Update
-from telegram.ext import CommandHandler, MessageHandler, CallbackContext
-from telegram.ext.filters import Filters
-from telegram import ForceReply
-from sqlalchemy import or_
-from collections import OrderedDict
+from collections import defaultdict
 from copy import deepcopy
+from itertools import permutations
+
+from sqlalchemy import or_
+from telegram import ForceReply, Update
+from telegram.ext import CallbackContext, CommandHandler, MessageHandler
+from telegram.ext.filters import Filters
 
 from bot.models.BlockedLinks import BlockedLink
 from bot.models.Group import Group
@@ -96,9 +96,10 @@ class SantaBot:
             "pairing_impossible": "Pairing is impossible",
             "you_got": "You got ",
             "their_address_is": "! Their address is: ",
-            "messages_sent": "Messages have been sent! There were ",
+            "messages_sent": "Messages have been sent!",
             "potential_combinations": " potential combinations",
             "pairings_reset": "All pairings have been reset",
+            "user_hasnt_joined": "This participant needs to join first",
 
                 }, "pt-br": {
             "private_error": "Você deve me enviar isso em um bate-papo privado",
@@ -155,9 +156,10 @@ class SantaBot:
             "pairing_impossible": "O emparelhamento é impossível",
             "you_got": "Você tem ",
             "their_address_is": "! Seu endereço é: ",
-            "messages_sent": "Mensagens foram enviadas! Houve ",
+            "messages_sent": "Mensagens foram enviadas!",
             "potential_combinations": " combinações potenciais",
             "pairings_reset": "Todos os pares foram redefinidos",
+            "user_hasnt_joined": "Este participante precisa participar primeiro",
 
         }}
 
@@ -315,7 +317,7 @@ class SantaBot:
             print("Chat ID: " + str(chat_id))
             print("User ID: " + str(user_id))
             if update.message.from_user.language_code:
-            print("User Local: " + update.message.from_user.language_code)
+                print("User Local: " + update.message.from_user.language_code)
             print("Type of Chat: " + chat_type)
 
             if chat_type == "private":
@@ -528,54 +530,38 @@ class SantaBot:
                 .filter(Group.telegram_id == this_group_id).all()
             group_participants = [x.id for x in group_participants_objects]
             print(group_participants)
-            group_blocked_exchange = self.session.query(BlockedLink).filter(
-                or_(BlockedLink.participant_id.in_(group_participants),
-                    BlockedLink.blocked_id.in_(group_participants))).all()
 
-            participant_dictionary = {}
-            for this_participant in group_participants:
-                participant_dictionary[this_participant] = deepcopy(group_participants)
-                if this_participant in participant_dictionary[this_participant]:
-                    participant_dictionary[this_participant].remove(this_participant)
+            blocked_participants_objects = self.session.query(BlockedLink).filter(BlockedLink.participant_id.in_(group_participants)).all()
+            blocked_participants = [[x.participant_id, x.blocked_id] for x in blocked_participants_objects]
 
-            for blocked_exchange in group_blocked_exchange:
-                participant_id = blocked_exchange.participant_id
-                blocked_id = blocked_exchange.blocked_id
-                if blocked_id in participant_dictionary[participant_id]:
-                    participant_dictionary[participant_id].remove(blocked_id)
-                if participant_id in participant_dictionary[blocked_id]:
-                    participant_dictionary[blocked_id].remove(participant_id)
+            success, selected_combination = self.find_combination(group_participants, blocked_participants)
 
-            if [] in participant_dictionary.values():
-                message = self.message_strings[user_locality]["pairing_impossible"]
-                update.message.reply_text(message)
+            #  TODO Deal with failure
+            if not success:
+                print("Matching Impossible")
                 return
-            participant_dictionary = OrderedDict(participant_dictionary)
-            print(participant_dictionary)
 
-            combinations = self.find_combinations(group_participants, participant_dictionary, [])
-            print("totals")
-            print(len(combinations))
-            print(combinations)
-            choice = random.choice(combinations)
-            print("choice")
-            print(choice)
+            chatInfo = update.message.chat
+            chatTitle = str(chatInfo.title)
 
-            for santa in group_participants_objects:
-                receiver = None
-                for potential_receiver in group_participants_objects:
-                    if potential_receiver.id == choice[santa.id]:
-                        receiver = potential_receiver
-
+            for santa_id, receiver_id in selected_combination.items():
+                santa = self.session.query(Participant).get(santa_id)
+                receiver = self.session.query(Participant).get(receiver_id)
+                
                 santa_link = self.session.query(Link).join(Group)\
-                    .filter(Link.santa_id == santa.id, Group.telegram_id == update.message.chat.id).first()
+                    .filter(Link.santa_id == santa.id, Group.telegram_id == chatInfo.id).first()
                 santa_link.receiver_id = receiver.id
-                message = self.message_strings[user_locality]["you_got"] + receiver.telegram_username + \
-                    self.message_strings[user_locality]["their_address_is"] + receiver.address
+                receiverUser = chatInfo.get_member(user_id=receiver.telegram_id).user
+                youGotUsername = "{}| {}{}".format(chatTitle, self.message_strings[user_locality]["you_got"],receiverUser.name)
+                if receiver.address:
+                    receiverAddress = receiver.address
+                else:
+                    receiverAddress = "empty"
+                youGotAddress = self.message_strings[user_locality]["their_address_is"] + receiverAddress
+                message =  youGotUsername + youGotAddress
                 context.bot.send_message(chat_id=santa.telegram_id, text=message)
             self.session.commit()
-            message = self.message_strings[user_locality]["messages_sent"] + str(len(combinations)) + \
-                self.message_strings[user_locality]["potential_combinations"]
+            message = self.message_strings[user_locality]["messages_sent"]
             update.message.reply_text(message)
         except Exception as this_ex:
             print(this_ex)
@@ -591,26 +577,65 @@ class SantaBot:
         message = self.message_strings[user_locality]["pairings_reset"]
         update.message.reply_text(message)
 
-    def find_combinations(self, remaining_participants, participant_dictionary, taken):
+    def find_combination(self, participants, blocked_pairings):      
+        #  permutations before removing blocked pairings
+        unfiltered_permutations = list(permutations(participants, 2))    
+        print("unfiltered permutations: {}".format(len(unfiltered_permutations)))
+        #  permutations after removing blocked pairings
+        filtered_permutations = defaultdict(set)
+        filtered_permutation_count = 0
+        for permutation in unfiltered_permutations:
+            blocked = False
+            for blocked_pairing in blocked_pairings:
+                if permutation[0] in blocked_pairing and permutation[1] in blocked_pairing:
+                    blocked = True
+                    break
+            if not blocked:
+                filtered_permutation_count += 1
+                filtered_permutations[permutation[0]].add(permutation[1])
+        
+        print("filtered permutations: {}".format(filtered_permutation_count))
+
+        if not filtered_permutations:
+            return False, {}
+        #  sort permutations by least number of pairings
+        sorted_permutations = sorted(filtered_permutations.items(), key=lambda x: len(x[1]))
+
+        #  get random set of pairings if possible
+        success, result_set = self.get_random_pairing(sorted_permutations)
+ 
+        return success, result_set
+        
+    def get_random_pairing(self, remaining_participants, gifting=[]):
         remaining_participants_copy = deepcopy(remaining_participants)
         this_participant = remaining_participants_copy.pop(0)
-        these_combinations = []
-        for option in participant_dictionary[this_participant]:
-            if option in taken:
+        print(this_participant)
+        gifting.append(this_participant[0])
+        participant_pairings = this_participant[1]
+        if len(remaining_participants_copy) == 0:
+            final_pairings = {this_participant[0]: participant_pairings.pop()}
+            return True, final_pairings
+        
+        while(len(participant_pairings) > 0):
+            random_receiver = random.sample(participant_pairings, 1)[0]
+            participant_pairings.remove(random_receiver)
+            possible = True
+            new_remaining_participants = deepcopy(remaining_participants_copy)
+            for remaining_participant, remaining_pairings in new_remaining_participants:
+                if len(remaining_pairings) == 1 and random_receiver in remaining_pairings:
+                    possible = False
+                    break
+                remaining_pairings.discard(random_receiver)      
+            if not possible:
                 continue
-            if len(remaining_participants_copy) > 0:
-                taken_copy = deepcopy(taken)
-                taken_copy.append(option)
-                child_combinations = self.find_combinations(
-                    remaining_participants_copy, participant_dictionary, taken_copy)
-                if len(child_combinations) > 0:
-                    for new_combination_dictionary in child_combinations:
-                        new_combination_dictionary[this_participant] = option
-                        these_combinations.append(new_combination_dictionary)
-            else:
-                return [{this_participant: option}]
-        return these_combinations
-
+            success, final_pairings = self.get_random_pairing(new_remaining_participants, gifting)
+            if success:
+                final_pairings[this_participant[0]] = random_receiver
+                return success, final_pairings
+            continue
+        #  At this point, no combinations are valid
+        return False, {}
+    
     @staticmethod
     def get_locality(user):
         locality = user.language_code
