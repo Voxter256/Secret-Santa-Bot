@@ -30,3 +30,4 @@ class LocalSantaBot(SantaBot):
             dispatcher.add_handler(handler)
 
         updater.start_polling()
+        print("running")
