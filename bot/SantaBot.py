@@ -293,12 +293,14 @@ class SantaBot:
                 return
 
             chat_id = update.message.chat.id
-            group_exists = self.session.query(Group).filter(Group.telegram_id == chat_id).first()
-            print("hello | group_exists: " + str(group_exists))
+            group_exists = self.session.query(Group).filter(Group.telegram_id == chat_id).first() 
             if not group_exists:
+                print("hello | new group")
                 new_group = Group(telegram_id=chat_id)
                 self.session.add(new_group)
                 self.session.commit()
+            else:
+                print("hello | group_exists.id: " + group_exists.id)
 
             message = self.message_strings[user_locality]["hello_done"]
             update.message.reply_text(message)
