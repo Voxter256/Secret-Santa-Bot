@@ -246,10 +246,8 @@ class SantaBot:
 
     def address(self, update: Update, context: CallbackContext):
         try:
-            user_locality = self.get_locality(update.message.from_user)
-            new_address = update.message.text
-            original_user = update.message.reply_to_message.from_user
-            original_text = update.message.reply_to_message.text
+            print("address | {}".format(update))
+            user_locality = self.get_locality(update.effective_user)
             if original_user.id == self.bot_id and \
                     original_text == self.message_strings[user_locality]["address?"]:
                 user_language_code = update.message.from_user.language_code
