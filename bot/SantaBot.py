@@ -1,6 +1,6 @@
+import logging
 import random
 import re
-import traceback
 from collections import defaultdict
 from copy import deepcopy
 from itertools import permutations
@@ -27,6 +27,8 @@ class SantaBot:
 
         self.session = dbConnection.session
 
+        logging.basicConfig(filename='santabot.log',level=logging.INFO,format='%(asctime)s %(message)s')
+        
         address_regex_string = r"""
             \d+[ ](?:[A-Za-z0-9.#-]+[ ]?)+,?[ ](?:[A-Za-z-]+[ ]?)+,[ ]
             (?:{Alabama|Alaska|Arizona|Arkansas|California|Colorado|
@@ -193,7 +195,7 @@ class SantaBot:
 
             this_participant = self.session.query(Participant).filter(Participant.telegram_id == user_id).first()
             if this_participant is None:
-                print("New Participant. ID:" + str(user_id) + " Username:" + str(user_username))
+                logging.info("New Participant. ID:" + str(user_id) + " Username:" + str(user_username))
                 this_participant = Participant(telegram_id=user_id, telegram_username=user_username)
                 self.session.add(this_participant)
                 self.session.commit()
@@ -207,10 +209,9 @@ class SantaBot:
             else:
                 message = self.message_strings[user_locality]["already_setup"] + this_participant.address
                 context.bot.send_message(chat_id=this_participant.telegram_id, text=message)
-            print("start | This Participant id: " + str(this_participant.id))
+            logging.info("start | This Participant id: " + str(this_participant.id))
         except Exception as this_ex:
-            print(this_ex)
-            print(traceback.format_exc())
+            logging.exception(this_ex)
 
     def help(self, update: Update, context: CallbackContext):
         user_locality = self.get_locality(update.effective_user)
@@ -239,14 +240,13 @@ class SantaBot:
                 context.bot.send_message(chat_id=this_participant.telegram_id, text=message)
                 message = self.message_strings[user_locality]["address?"]
                 context.bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
-            print("show_address | This Participant id: " + str(this_participant.id))
+            logging.info("show_address | This Participant id: " + str(this_participant.id))
         except Exception as this_ex:
-            print(this_ex)
-            print(traceback.format_exc())
+            logging.exception(this_ex)
 
     def address(self, update: Update, context: CallbackContext):
         try:
-            print("address | {}".format(update))
+            logging.info("address | {}".format(update))
             user_locality = self.get_locality(update.effective_user)
             new_address = update.effective_message.text
             original_user = update.effective_message.reply_to_message.from_user
@@ -281,8 +281,7 @@ class SantaBot:
                                      text=self.message_strings[user_locality]["address?"],
                                      reply_markup=ForceReply())
         except Exception as this_ex:
-            print(this_ex)
-            print(traceback.format_exc())
+            logging.exception(this_ex)
 
     def hello(self, update: Update, context: CallbackContext):
         try:
@@ -296,19 +295,18 @@ class SantaBot:
             chat_id = update.effective_chat.id
             group_exists = self.session.query(Group).filter(Group.telegram_id == chat_id).first() 
             if not group_exists:
-                print("hello | new group")
+                logging.info("hello | new group")
                 new_group = Group(telegram_id=chat_id)
                 self.session.add(new_group)
                 self.session.commit()
             else:
-                print("hello | group_exists.id: " + group_exists.id)
+                logging.info("hello | group_exists.id: " + group_exists.id)
 
             message = self.message_strings[user_locality]["hello_done"]
             update.effective_message.reply_text(message)
             return
         except Exception as this_ex:
-            print(this_ex)
-            print(traceback.format_exc())
+            logging.exception(this_ex)
 
     def join(self, update: Update, context: CallbackContext):
         try:
@@ -317,11 +315,11 @@ class SantaBot:
             user_id = update.effective_user.id
             user_username = update.effective_user.username
             chat_type = update.effective_chat.type
-            print("Chat ID: " + str(chat_id))
-            print("User ID: " + str(user_id))
+            logging.info("Chat ID: " + str(chat_id))
+            logging.info("User ID: " + str(user_id))
             if update.effective_user.language_code:
-                print("User Local: " + update.effective_user.language_code)
-            print("Type of Chat: " + chat_type)
+                logging.info("User Local: " + update.effective_user.language_code)
+            logging.info("Type of Chat: " + chat_type)
 
             if chat_type == "private":
                 message = self.message_strings[user_locality]["group_error"]
@@ -365,17 +363,16 @@ class SantaBot:
                 message = self.message_strings[user_locality]["already_joined"]
                 update.effective_message.reply_text(message)
         except Exception as this_ex:
-            print(this_ex)
-            print(traceback.format_exc())
+            logging.exception(this_ex)
 
     def not_command(self, update: Update, context: CallbackContext):
         try:
-            print("{}: not".format(update.effective_user.name))
+            logging.info("{}: not".format(update.effective_user.name))
             user_locality = self.get_locality(update.effective_user)
             entities = update.effective_message.parse_entities()
             for entity, entity_text in entities.items():
                 entity_type = entity.type
-                print("not | entity type: {}".format(str(entity_type)))
+                logging.info("not | entity type: {}".format(str(entity_type)))
                 if entity_type == "mention":
                     this_participant = self.session.query(Participant).filter(
                         Participant.telegram_id == update.effective_user.id).first()
@@ -433,8 +430,7 @@ class SantaBot:
                     
             self.session.commit()
         except Exception as this_ex:
-            print(this_ex)
-            print(traceback.format_exc())
+            logging.exception(this_ex)
 
     def allow(self, update: Update, context: CallbackContext):
         try:
@@ -442,7 +438,7 @@ class SantaBot:
             entities = update.effective_message.parse_entities()
             for entity, entity_text in entities.items():
                 entity_type = entity.type
-                print("allow | entity_type: " + str(entity_type))
+                logging.info("allow | entity_type: " + str(entity_type))
                 if entity_type == "mention":
                     this_participant = self.session.query(Participant).filter(
                         Participant.telegram_id == update.effective_user.id).first()
@@ -492,8 +488,7 @@ class SantaBot:
                         message = entity_text + self.message_strings[user_locality]["not_blocked"]
                         update.effective_message.reply_text(message)
         except Exception as this_ex:
-            print(this_ex)
-            print(traceback.format_exc())
+            logging.exception(this_ex)
 
     def leave(self, update: Update, context: CallbackContext):
         try:
@@ -512,7 +507,7 @@ class SantaBot:
                 message = self.message_strings[user_locality]["done"]
                 update.effective_message.reply_text(message)
         except Exception as this_ex:
-            print(this_ex)
+            logging.exception(this_ex)
 
     def start_exchange(self, update: Update, context: CallbackContext):
         try:
@@ -532,7 +527,7 @@ class SantaBot:
             group_participants_objects = self.session.query(Participant).join(Participant.link_santa).join(Group)\
                 .filter(Group.telegram_id == this_group_id).all()
             group_participants = [x.id for x in group_participants_objects]
-            print(group_participants)
+            logging.info(group_participants)
 
             blocked_participants_objects = self.session.query(BlockedLink).filter(BlockedLink.participant_id.in_(group_participants)).all()
             blocked_participants = [[x.participant_id, x.blocked_id] for x in blocked_participants_objects]
@@ -541,7 +536,7 @@ class SantaBot:
 
             #  TODO Deal with failure
             if not success:
-                print("Matching Impossible")
+                logging.info("Matching Impossible")
                 return
 
             chatInfo = update.effective_chat
@@ -567,8 +562,7 @@ class SantaBot:
             message = self.message_strings[user_locality]["messages_sent"]
             update.effective_message.reply_text(message)
         except Exception as this_ex:
-            print(this_ex)
-            print(traceback.format_exc())
+            logging.exception(this_ex)
 
     def reset_exchange(self, update: Update, context: CallbackContext):
         user_locality = self.get_locality(update.effective_user)
@@ -583,7 +577,7 @@ class SantaBot:
     def find_combination(self, participants, blocked_pairings):      
         #  permutations before removing blocked pairings
         unfiltered_permutations = list(permutations(participants, 2))    
-        print("unfiltered permutations: {}".format(len(unfiltered_permutations)))
+        logging.info("unfiltered permutations: {}".format(len(unfiltered_permutations)))
         #  permutations after removing blocked pairings
         filtered_permutations = defaultdict(set)
         filtered_permutation_count = 0
@@ -597,7 +591,7 @@ class SantaBot:
                 filtered_permutation_count += 1
                 filtered_permutations[permutation[0]].add(permutation[1])
         
-        print("filtered permutations: {}".format(filtered_permutation_count))
+        logging.info("filtered permutations: {}".format(filtered_permutation_count))
 
         if not filtered_permutations:
             return False, {}
@@ -612,7 +606,7 @@ class SantaBot:
     def get_random_pairing(self, remaining_participants, gifting=[]):
         remaining_participants_copy = deepcopy(remaining_participants)
         this_participant = remaining_participants_copy.pop(0)
-        print(this_participant)
+        logging.info(this_participant)
         gifting.append(this_participant[0])
         participant_pairings = this_participant[1]
         if len(remaining_participants_copy) == 0:
