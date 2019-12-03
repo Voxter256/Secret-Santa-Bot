@@ -618,7 +618,8 @@ class SantaBot:
             participant_pairings.remove(random_receiver)
             possible = True
             new_remaining_participants = deepcopy(remaining_participants_copy)
-            for remaining_participant, remaining_pairings in new_remaining_participants:
+            remaining_pairings_list = [remaining_participant[1] for remaining_participant in new_remaining_participants]
+            for remaining_pairings in remaining_pairings_list:
                 if len(remaining_pairings) == 1 and random_receiver in remaining_pairings:
                     possible = False
                     break
