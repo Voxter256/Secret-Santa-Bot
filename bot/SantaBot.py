@@ -182,7 +182,7 @@ class SantaBot:
 
     def start(self, update: Update, context: CallbackContext):
         try:
-            chat_type = update.effective_message.chat.type
+            chat_type = update.effective_chat.type
             user_locality = self.get_locality(update.effective_user)
             if chat_type != "private":
                 message = self.message_strings[user_locality]["private_error"]
@@ -219,7 +219,7 @@ class SantaBot:
 
     def show_address(self, update: Update, context: CallbackContext):
         try:
-            chat_type = update.effective_message.chat.type
+            chat_type = update.effective_chat.type
             user_locality = self.get_locality(update.effective_user)
             if chat_type != "private":
                 message = self.message_strings[user_locality]["private_error"]
@@ -287,13 +287,13 @@ class SantaBot:
     def hello(self, update: Update, context: CallbackContext):
         try:
             user_locality = self.get_locality(update.effective_user)
-            chat_type = update.effective_message.chat.type
+            chat_type = update.effective_chat.type
             if chat_type == "private":
                 message = self.message_strings[user_locality]["group_error"]
                 update.effective_message.reply_text(message)
                 return
 
-            chat_id = update.effective_message.chat.id
+            chat_id = update.effective_chat.id
             group_exists = self.session.query(Group).filter(Group.telegram_id == chat_id).first() 
             if not group_exists:
                 print("hello | new group")
@@ -313,10 +313,10 @@ class SantaBot:
     def join(self, update: Update, context: CallbackContext):
         try:
             user_locality = self.get_locality(update.effective_user)
-            chat_id = update.effective_message.chat.id
+            chat_id = update.effective_chat.id
             user_id = update.effective_user.id
             user_username = update.effective_user.username
-            chat_type = update.effective_message.chat.type
+            chat_type = update.effective_chat.type
             print("Chat ID: " + str(chat_id))
             print("User ID: " + str(user_id))
             if update.effective_user.language_code:
@@ -501,7 +501,7 @@ class SantaBot:
             # delete in memberships
             this_link = self.session.query(Link).join(Link.santa).join(Group)\
                 .filter(Participant.telegram_id == update.effective_user.id,
-                        Group.telegram_id == update.effective_message.chat.id).first()
+                        Group.telegram_id == update.effective_chat.id).first()
             if this_link is None:
                 message = self.message_strings[user_locality]["never_joined"]
                 update.effective_message.reply_text(message)
@@ -518,7 +518,7 @@ class SantaBot:
         try:
             user_locality = self.get_locality(update.effective_user)
             link_record_to_check = self.session.query(Link).join(Group).filter(
-                Group.telegram_id == update.effective_message.chat.id).first()
+                Group.telegram_id == update.effective_chat.id).first()
             if link_record_to_check is None:
                 message = self.message_strings[user_locality]["no_one_joined"]
                 update.effective_message.reply_text(message)
@@ -528,7 +528,7 @@ class SantaBot:
                 update.effective_message.reply_text(message)
                 return
 
-            this_group_id = update.effective_message.chat.id
+            this_group_id = update.effective_chat.id
             group_participants_objects = self.session.query(Participant).join(Participant.link_santa).join(Group)\
                 .filter(Group.telegram_id == this_group_id).all()
             group_participants = [x.id for x in group_participants_objects]
@@ -544,7 +544,7 @@ class SantaBot:
                 print("Matching Impossible")
                 return
 
-            chatInfo = update.effective_message.chat
+            chatInfo = update.effective_chat
             chatTitle = str(chatInfo.title)
 
             for santa_id, receiver_id in selected_combination.items():
@@ -572,7 +572,7 @@ class SantaBot:
 
     def reset_exchange(self, update: Update, context: CallbackContext):
         user_locality = self.get_locality(update.effective_user)
-        this_group_id = update.effective_message.chat.id
+        this_group_id = update.effective_chat.id
         group_links = self.session.query(Link).join(Group).filter(Group.telegram_id == this_group_id)
         for group_link in group_links:
             group_link.receiver_id = None
