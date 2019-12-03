@@ -195,7 +195,7 @@ class SantaBot:
 
             this_participant = self.session.query(Participant).filter(Participant.telegram_id == user_id).first()
             if this_participant is None:
-                logging.info("New Participant. ID:" + str(user_id) + " Username:" + str(user_username))
+                logging.info("Start | New Participant | ID: {} Username: {}".format(str(user_id), str(user_username)))
                 this_participant = Participant(telegram_id=user_id, telegram_username=user_username)
                 self.session.add(this_participant)
                 self.session.commit()
@@ -209,7 +209,7 @@ class SantaBot:
             else:
                 message = self.message_strings[user_locality]["already_setup"] + this_participant.address
                 context.bot.send_message(chat_id=this_participant.telegram_id, text=message)
-            logging.info("start | This Participant id: " + str(this_participant.id))
+            logging.info("start | This Participant ID: {}".format(str(this_participant.id)))
         except Exception as this_ex:
             logging.exception(this_ex)
 
@@ -240,7 +240,7 @@ class SantaBot:
                 context.bot.send_message(chat_id=this_participant.telegram_id, text=message)
                 message = self.message_strings[user_locality]["address?"]
                 context.bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
-            logging.info("show_address | This Participant id: " + str(this_participant.id))
+            logging.info("show_address | This Participant ID: {}".format(str(this_participant.id)))
         except Exception as this_ex:
             logging.exception(this_ex)
 
@@ -300,7 +300,7 @@ class SantaBot:
                 self.session.add(new_group)
                 self.session.commit()
             else:
-                logging.info("hello | group_exists.id: " + group_exists.id)
+                logging.info("hello | group_exists.id: {}".format(group_exists.id))
 
             message = self.message_strings[user_locality]["hello_done"]
             update.effective_message.reply_text(message)
@@ -315,11 +315,11 @@ class SantaBot:
             user_id = update.effective_user.id
             user_username = update.effective_user.username
             chat_type = update.effective_chat.type
-            logging.info("Chat ID: " + str(chat_id))
-            logging.info("User ID: " + str(user_id))
+            logging.info("Chat ID: {}".format(str(chat_id)))
+            logging.info("User ID: {}".format(str(user_id)))
             if update.effective_user.language_code:
-                logging.info("User Local: " + update.effective_user.language_code)
-            logging.info("Type of Chat: " + chat_type)
+                logging.info("User Local: {}".format(update.effective_user.language_code))
+            logging.info("Type of Chat: {}".format(chat_type))
 
             if chat_type == "private":
                 message = self.message_strings[user_locality]["group_error"]
@@ -438,7 +438,7 @@ class SantaBot:
             entities = update.effective_message.parse_entities()
             for entity, entity_text in entities.items():
                 entity_type = entity.type
-                logging.info("allow | entity_type: " + str(entity_type))
+                logging.info("allow | entity_type: {}".format(str(entity_type)))
                 if entity_type == "mention":
                     this_participant = self.session.query(Participant).filter(
                         Participant.telegram_id == update.effective_user.id).first()
