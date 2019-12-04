@@ -605,7 +605,19 @@ class SantaBot:
             this_group_id = update.effective_chat.id
             group_participants_objects = self.session.query(Participant).join(Participant.link_santa).join(Group)\
                 .filter(Group.telegram_id == this_group_id).all()
-            group_participants = [x.id for x in group_participants_objects]
+
+            # Remove participants that are no longer in the chat
+            temp_participants_list = []
+            for group_participant in group_participants_objects:
+                try:
+                    update.effective_chat.get_member(user_id=group_participant.telegram_id)
+                    temp_participants_list.append(group_participant)
+                except BadRequest as this_ex:
+                    logging.warning("Participant with telegram id {} is no longer in chat with telegram id {}".format(group_participant.telegram_id, this_group_id))
+                    # TODO Remove participant from chat
+                    continue
+                
+            group_participants = [x.id for x in temp_participants_list]
             logging.info(group_participants)
 
             blocked_participants_objects = self.session.query(BlockedLink).filter(BlockedLink.participant_id.in_(group_participants)).all()
