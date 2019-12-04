@@ -59,6 +59,8 @@ class SantaBot:
                     "Sent only in a private message to show and update your address. \n" +
                 "/join \n" +
                     "Joins you in the gift exchange in this chat. \n" +
+                "/status \n" +
+                    "Gets the status of this chat's exchange. \n" +
                 "/not @Mention \n" +
                     "Prevents you from being paired up with this participant. \n" +
                 "/allow @Mention \n" +
@@ -122,6 +124,8 @@ class SantaBot:
                     "Enviou apenas uma mensagem privada para mostrar e atualizar seu endereço. \n" +
                 "/join \n" +
                     "Junta-te a ti na troca de presentes neste chat. \n" +
+                "/status \n" +
+                    "Obtém o status da troca deste bate-papo. \n" +
                 "/not @Mention \n" +
                     "Impede que você seja emparelhado com este participante. \n" +
                 "/allow @Mention \n" +
