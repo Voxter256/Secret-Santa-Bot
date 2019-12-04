@@ -7,6 +7,7 @@ from itertools import permutations
 
 from sqlalchemy import or_
 from telegram import ForceReply, Update
+from telegram.error import BadRequest
 from telegram.ext import CallbackContext, CommandHandler, MessageHandler
 from telegram.ext.filters import Filters
 
@@ -102,6 +103,10 @@ class SantaBot:
             "potential_combinations": " potential combinations",
             "pairings_reset": "All pairings have been reset",
             "user_hasnt_joined": "This participant needs to join first",
+            "exchange_finished": "The exchange has finished",
+            "exchange_waiting": "The exchange has not begun",
+            "joined_users": "Joined Users",
+            "cannot_pair_with": "Cannot pair with",
 
                 }, "pt-br": {
             "private_error": "Você deve me enviar isso em um bate-papo privado",
@@ -162,6 +167,10 @@ class SantaBot:
             "potential_combinations": " combinações potenciais",
             "pairings_reset": "Todos os pares foram redefinidos",
             "user_hasnt_joined": "Este participante precisa participar primeiro",
+            "exchange_finished": "A troca terminou",
+            "exchange_waiting": "A troca não começou",
+            "joined_users": "Usuários Ingressados",
+            "cannot_pair_with": "Não foi possível emparelhar com",
 
         }}
 
@@ -177,6 +186,7 @@ class SantaBot:
             CommandHandler('not', self.not_command),
             CommandHandler('allow', self.allow),
             CommandHandler('leave', self.leave),
+            CommandHandler('status', self.status),
             CommandHandler('start_exchange', self.start_exchange),
             CommandHandler('reset_exchange', self.reset_exchange),
             MessageHandler(Filters.reply & Filters.text, self.address)
@@ -509,6 +519,71 @@ class SantaBot:
         except Exception as this_ex:
             logging.exception(this_ex)
 
+    def status(self, update: Update, context: CallbackContext):
+        try:
+            user_locality = self.get_locality(update.effective_user)
+            chat_id = update.effective_chat.id
+            chat_type = update.effective_chat.type
+            logging.info("Status | Chat ID: {}".format(str(chat_id)))
+            logging.info("Type of Chat: {}".format(chat_type))
+
+            if chat_type == "private":
+                message = self.message_strings[user_locality]["group_error"]
+                update.effective_message.reply_text(message)
+                return
+
+            this_group = self.session.query(Group).filter(Group.telegram_id == chat_id).first()
+            
+            if this_group is None:
+                    message = self.message_strings[user_locality]["say_hello"]
+                    update.effective_message.reply_text(message)
+                    return
+            
+            link_record_to_check = self.session.query(Link).join(Group).filter(
+                Group.telegram_id == update.effective_chat.id).first()
+            if link_record_to_check.receiver_id is not None:
+                message = '{}\n\n'.format(self.message_strings[user_locality]["exchange_finished"])
+            else:
+                message = '{}\n\n'.format(self.message_strings[user_locality]["exchange_waiting"])
+
+            # Get all Group Members
+            group_links = this_group.links
+
+            message += '{}:\n'.format(self.message_strings[user_locality]["joined_users"])
+            for link in group_links:
+                this_participant = link.santa
+                chat_member = update.effective_chat.get_member(user_id=this_participant.telegram_id)
+                if not chat_member:
+                    continue
+                message += '\n{}\n'.format(chat_member.user.name)
+
+                blocked_participants = []
+                blocked_links = this_participant.blocked_link
+                for blocked_link in blocked_links:
+                    blocked_participants.append(blocked_link.blocker)
+                blocker_links = this_participant.blocker_link
+                for blocker_link in blocker_links:
+                    blocked_participants.append(blocker_link.blocked)
+
+                first = True
+                if blocked_participants:
+                    
+                    for blocked_participant in blocked_participants:
+                        try:
+                            chat_member = update.effective_chat.get_member(user_id=blocked_participant.telegram_id)
+                        except BadRequest as this_ex:
+                            # TODO Remove participant from chat
+                            continue
+                        if first:
+                            message += '{}: '.format(self.message_strings[user_locality]["cannot_pair_with"])
+                            first = False
+                        message += '{}, '.format(chat_member.user.name)
+                    message = message[:-2] + '\n'
+                    message = message.replace('@', '')
+            update.effective_message.reply_text(message)
+        except Exception as this_ex:
+            logging.exception(this_ex)
+    
     def start_exchange(self, update: Update, context: CallbackContext):
         try:
             user_locality = self.get_locality(update.effective_user)
