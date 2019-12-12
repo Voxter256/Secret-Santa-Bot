@@ -634,21 +634,28 @@ class SantaBot:
             chatTitle = str(chatInfo.title)
 
             for santa_id, receiver_id in selected_combination.items():
-                santa = self.session.query(Participant).get(santa_id)
-                receiver = self.session.query(Participant).get(receiver_id)
-                
-                santa_link = self.session.query(Link).join(Group)\
-                    .filter(Link.santa_id == santa.id, Group.telegram_id == chatInfo.id).first()
-                santa_link.receiver_id = receiver.id
-                receiverUser = chatInfo.get_member(user_id=receiver.telegram_id).user
-                youGotUsername = "{}| {}{}".format(chatTitle, self.message_strings[user_locality]["you_got"],receiverUser.name)
-                if receiver.address:
-                    receiverAddress = receiver.address
-                else:
-                    receiverAddress = "empty"
-                youGotAddress = self.message_strings[user_locality]["their_address_is"] + receiverAddress
-                message =  youGotUsername + youGotAddress
-                context.bot.send_message(chat_id=santa.telegram_id, text=message)
+                try:
+                    santa = self.session.query(Participant).get(santa_id)
+                    receiver = self.session.query(Participant).get(receiver_id)
+                    
+                    santa_link = self.session.query(Link).join(Group)\
+                        .filter(Link.santa_id == santa.id, Group.telegram_id == chatInfo.id).first()
+                    santa_link.receiver_id = receiver.id
+                    receiverUser = chatInfo.get_member(user_id=receiver.telegram_id).user
+                    youGotUsername = "{}| {}{}".format(chatTitle, self.message_strings[user_locality]["you_got"],receiverUser.name)
+                    if receiver.address:
+                        receiverAddress = receiver.address
+                    else:
+                        receiverAddress = "empty"
+                    youGotAddress = self.message_strings[user_locality]["their_address_is"] + receiverAddress
+                    message =  youGotUsername + youGotAddress
+                    context.bot.send_message(chat_id=santa.telegram_id, text=message)
+                except Exception as this_ex:
+                    if santa_id and receiverUser:
+                        santaName = chatInfo.get_member(user_id=santa_id).user.name
+                        logging.exception("Exception: {}. Santa ID: {} Santa Name: {} got Receiver ID: {} Receiver Name: {}".format(this_ex, santa_id, santaName, receiverUser.id, receiverUser.name))
+                    else:
+                        logging.exception("Exception: {}.".format(this_ex))
             self.session.commit()
             message = self.message_strings[user_locality]["messages_sent"]
             update.effective_message.reply_text(message)
