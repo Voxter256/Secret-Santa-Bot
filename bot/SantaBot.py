@@ -196,13 +196,24 @@ class SantaBot:
             MessageHandler(Filters.reply & Filters.text, self.address)
         ]
 
+    def send_message(self, context=None, chat_id=None, text=None, reply_markup=None):
+        if context:
+            sent_message = context.bot.send_message(chat_id=chat_id.telegram_id, text=text, reply_markup=reply_markup)
+            logging.info("Sent Message '{}' with ID {} to Chat {}".format(text, sent_message.message_id, chat_id))
+            return
+
+    def reply_message(self, update=None, text=None):
+        if update and text:
+            sent_message = update.effective_message.reply_text(text)
+            logging.info("Sent Reply '{}' with ID {} to Chat {}".format(text, sent_message.message_id, update.effective_chat.id))
+    
     def start(self, update: Update, context: CallbackContext):
         try:
             chat_type = update.effective_chat.type
             user_locality = self.get_locality(update.effective_user)
             if chat_type != "private":
                 message = self.message_strings[user_locality]["private_error"]
-                update.effective_message.reply_text(message)
+                self.reply_message(update=update, text=message)
                 return
             user_id = update.effective_user.id
             user_username = update.effective_user.username
@@ -214,15 +225,15 @@ class SantaBot:
                 self.session.add(this_participant)
                 self.session.commit()
                 message = self.message_strings[user_locality]["hello"]
-                context.bot.send_message(chat_id=this_participant.telegram_id, text=message)
+                self.send_message(context=context, chat_id=this_participant.telegram_id, text=message)
                 message = self.message_strings[user_locality]["address?"]
-                context.bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
+                self.send_message(context=context, chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
             elif this_participant.address is None:
                 message = self.message_strings[user_locality]["address?"]
-                context.bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
+                self.send_message(context=context, chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
             else:
                 message = self.message_strings[user_locality]["already_setup"] + this_participant.address
-                context.bot.send_message(chat_id=this_participant.telegram_id, text=message)
+                self.send_message(context=context, chat_id=this_participant.telegram_id, text=message)
             logging.info("start | This Participant ID: {}".format(str(this_participant.id)))
         except Exception as this_ex:
             logging.exception(this_ex)
@@ -230,7 +241,7 @@ class SantaBot:
     def help(self, update: Update, context: CallbackContext):
         user_locality = self.get_locality(update.effective_user)
         message = self.message_strings[user_locality]["help"]
-        update.effective_message.reply_text(message)
+        self.reply_message(update=update, text=message)
 
     def show_address(self, update: Update, context: CallbackContext):
         try:
@@ -238,7 +249,7 @@ class SantaBot:
             user_locality = self.get_locality(update.effective_user)
             if chat_type != "private":
                 message = self.message_strings[user_locality]["private_error"]
-                update.effective_message.reply_text(message)
+                self.reply_message(update=update, text=message)
                 return
             user_id = update.effective_user.id
             # user_username = update.effective_user.username
@@ -246,14 +257,14 @@ class SantaBot:
             this_participant = self.session.query(Participant).filter(Participant.telegram_id == user_id).first()
             if this_participant is None:
                 message = self.message_strings[user_locality]["send_start"]
-                update.effective_message.reply_text(message)
+                self.reply_message(update=update, text=message)
                 return
             else:
                 message = self.message_strings[user_locality]["current_address_1"] + str(this_participant.address) + "\n" + \
                     self.message_strings[user_locality]["current_address_2"]
-                context.bot.send_message(chat_id=this_participant.telegram_id, text=message)
+                self.send_message(context=context, chat_id=this_participant.telegram_id, text=message)
                 message = self.message_strings[user_locality]["address?"]
-                context.bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
+                self.send_message(context=context, chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
             logging.info("show_address | This Participant ID: {}".format(str(this_participant.id)))
         except Exception as this_ex:
             logging.exception(this_ex)
@@ -277,7 +288,7 @@ class SantaBot:
 
                     message = self.message_strings[user_locality]["address_confirmation"] + new_address + "\n" + \
                               self.message_strings[user_locality]["post_confirm_instructions"]
-                    update.effective_message.reply_text(message)
+                    self.reply_message(update=update, text=message)
                 elif address_match_object is not None:
                     this_user = self.session.query(Participant).filter(
                         Participant.telegram_id == update.effective_user.id).first()
@@ -287,11 +298,11 @@ class SantaBot:
 
                     message = self.message_strings[user_locality]["address_confirmation"] + address_filtered + "\n" + \
                         self.message_strings[user_locality]["post_confirm_instructions"]
-                    update.effective_message.reply_text(message)
+                    self.reply_message(update=update, text=message)
                 else:
                     message = self.message_strings[user_locality]["address_error"]
-                    update.effective_message.reply_text(message)
-                    context.bot.send_message(chat_id=update.effective_user.id,
+                    self.reply_message(update=update, text=message)
+                    self.send_message(context=context, chat_id=update.effective_user.id,
                                      text=self.message_strings[user_locality]["address?"],
                                      reply_markup=ForceReply())
         except Exception as this_ex:
@@ -303,7 +314,7 @@ class SantaBot:
             chat_type = update.effective_chat.type
             if chat_type == "private":
                 message = self.message_strings[user_locality]["group_error"]
-                update.effective_message.reply_text(message)
+                self.reply_message(update=update, text=message)
                 return
 
             chat_id = update.effective_chat.id
@@ -317,7 +328,7 @@ class SantaBot:
                 logging.info("hello | group_exists.id: {}".format(group_exists.id))
 
             message = self.message_strings[user_locality]["hello_done"]
-            update.effective_message.reply_text(message)
+            self.reply_message(update=update, text=message)
             return
         except Exception as this_ex:
             logging.exception(this_ex)
@@ -337,20 +348,20 @@ class SantaBot:
 
             if chat_type == "private":
                 message = self.message_strings[user_locality]["group_error"]
-                update.effective_message.reply_text(message)
+                self.reply_message(update=update, text=message)
                 return
 
             this_participant = self.session.query(Participant).filter(Participant.telegram_id == user_id).first()
             if this_participant is None:
                 message = self.message_strings[user_locality]["start_private"]
-                update.effective_message.reply_text(message)
+                self.reply_message(update=update, text=message)
                 return
 
             if this_participant.address is None:
                 message = self.message_strings[user_locality]["need_address"]
-                update.effective_message.reply_text(message)
+                self.reply_message(update=update, text=message)
                 message = self.message_strings[user_locality]["address?"]
-                context.bot.send_message(chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
+                self.send_message(context=context, chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
                 return
 
             # Check to see if there is a BlockedLink waiting, if so update it
@@ -367,15 +378,15 @@ class SantaBot:
                 this_group = self.session.query(Group).filter(Group.telegram_id == chat_id).first()
                 if this_group is None:
                     message = self.message_strings[user_locality]["say_hello"]
-                    update.effective_message.reply_text(message)
+                    self.reply_message(update=update, text=message)
                     return
                 self.session.add(Link(santa_id=this_participant.id, group_id=this_group.id))
                 self.session.commit()
                 message = self.message_strings[user_locality]["in"]
-                update.effective_message.reply_text(message)
+                self.reply_message(update=update, text=message)
             else:
                 message = self.message_strings[user_locality]["already_joined"]
-                update.effective_message.reply_text(message)
+                self.reply_message(update=update, text=message)
         except Exception as this_ex:
             logging.exception(this_ex)
 
@@ -403,10 +414,10 @@ class SantaBot:
                                 BlockedLink(participant_id=this_participant.id, blocked_username=mentioned_participant))
                         else:
                             message = self.message_strings[user_locality]["already_blocked_pairing"]
-                            update.effective_message.reply_text(message)
+                            self.reply_message(update=update, text=message)
                     elif participant_by_username.id == this_participant.id:
                         message = self.message_strings[user_locality]["not_yourself"]
-                        update.effective_message.reply_text(message)
+                        self.reply_message(update=update, text=message)
                     else:
                         id_list = [this_participant.id, participant_by_username.id]
                         in_blocked_list = self.session.query(BlockedLink).filter(
@@ -415,10 +426,10 @@ class SantaBot:
                             self.session.add(
                                 BlockedLink(participant_id=this_participant.id, blocked_id=participant_by_username.id))
                             message = self.message_strings[user_locality]["block_successful"]
-                            update.effective_message.reply_text(message)
+                            self.reply_message(update=update, text=message)
                         else:
                             message = self.message_strings[user_locality]["already_blocked_pairing"]
-                            update.effective_message.reply_text(message)
+                            self.reply_message(update=update, text=message)
                 elif entity_type == "text_mention":
                     this_participant = self.session.query(Participant).filter(
                         Participant.telegram_id == update.effective_user.id).first()
@@ -428,7 +439,7 @@ class SantaBot:
                         Participant.telegram_id == mentioned_user.id).first()
                     if mentioned_participant is None:
                         message = self.message_strings[user_locality]["user_hasnt_joined"]
-                        update.effective_message.reply_text(message)
+                        self.reply_message(update=update, text=message)
                     else:
                         id_list = [this_participant.id, mentioned_participant.id]
                         in_blocked_list = self.session.query(BlockedLink).filter(
@@ -437,10 +448,10 @@ class SantaBot:
                             self.session.add(
                                 BlockedLink(participant_id=this_participant.id, blocked_id=mentioned_participant.id))
                             message = self.message_strings[user_locality]["block_successful"]
-                            update.effective_message.reply_text(message)
+                            self.reply_message(update=update, text=message)
                         else:
                             message = self.message_strings[user_locality]["already_blocked_pairing"]
-                            update.effective_message.reply_text(message)
+                            self.reply_message(update=update, text=message)
                     
             self.session.commit()
         except Exception as this_ex:
@@ -475,10 +486,10 @@ class SantaBot:
                         self.session.delete(blocked_link)
                         self.session.commit()
                         message = self.message_strings[user_locality]["allow_successful"] + entity_text
-                        update.effective_message.reply_text(message)
+                        self.reply_message(update=update, text=message)
                     else:
                         message = entity_text + self.message_strings[user_locality]["not_blocked"]
-                        update.effective_message.reply_text(message)
+                        self.reply_message(update=update, text=message)
                 elif entity_type == "text_mention":
                     this_participant = self.session.query(Participant).filter(
                         Participant.telegram_id == update.effective_user.id).first()
@@ -497,10 +508,10 @@ class SantaBot:
                         self.session.delete(blocked_link)
                         self.session.commit()
                         message = self.message_strings[user_locality]["allow_successful"] + entity_text
-                        update.effective_message.reply_text(message)
+                        self.reply_message(update=update, text=message)
                     else:
                         message = entity_text + self.message_strings[user_locality]["not_blocked"]
-                        update.effective_message.reply_text(message)
+                        self.reply_message(update=update, text=message)
         except Exception as this_ex:
             logging.exception(this_ex)
 
@@ -513,13 +524,13 @@ class SantaBot:
                         Group.telegram_id == update.effective_chat.id).first()
             if this_link is None:
                 message = self.message_strings[user_locality]["never_joined"]
-                update.effective_message.reply_text(message)
+                self.reply_message(update=update, text=message)
             else:
                 self.session.query()
                 self.session.delete(this_link)
                 self.session.commit()
                 message = self.message_strings[user_locality]["done"]
-                update.effective_message.reply_text(message)
+                self.reply_message(update=update, text=message)
         except Exception as this_ex:
             logging.exception(this_ex)
 
@@ -533,14 +544,14 @@ class SantaBot:
 
             if chat_type == "private":
                 message = self.message_strings[user_locality]["group_error"]
-                update.effective_message.reply_text(message)
+                self.reply_message(update=update, text=message)
                 return
 
             this_group = self.session.query(Group).filter(Group.telegram_id == chat_id).first()
             
             if this_group is None:
                     message = self.message_strings[user_locality]["say_hello"]
-                    update.effective_message.reply_text(message)
+                    self.reply_message(update=update, text=message)
                     return
             
             link_record_to_check = self.session.query(Link).join(Group).filter(
@@ -584,7 +595,7 @@ class SantaBot:
                         message += '{}, '.format(chat_member.user.name)
                     message = message[:-2] + '\n'
                     message = message.replace('@', '')
-            update.effective_message.reply_text(message)
+            self.reply_message(update=update, text=message)
         except Exception as this_ex:
             logging.exception(this_ex)
     
@@ -595,11 +606,11 @@ class SantaBot:
                 Group.telegram_id == update.effective_chat.id).first()
             if link_record_to_check is None:
                 message = self.message_strings[user_locality]["no_one_joined"]
-                update.effective_message.reply_text(message)
+                self.reply_message(update=update, text=message)
                 return
             if link_record_to_check.receiver_id is not None:
                 message = self.message_strings[user_locality]["exchange_already_setup"]
-                update.effective_message.reply_text(message)
+                self.reply_message(update=update, text=message)
                 return
 
             this_group_id = update.effective_chat.id
@@ -649,7 +660,7 @@ class SantaBot:
                         receiverAddress = "empty"
                     youGotAddress = self.message_strings[user_locality]["their_address_is"] + receiverAddress
                     message =  youGotUsername + youGotAddress
-                    context.bot.send_message(chat_id=santa.telegram_id, text=message)
+                    self.send_message(context=context, chat_id=santa.telegram_id, text=message)
                 except Exception as this_ex:
                     if santa_id and receiverUser:
                         santaName = chatInfo.get_member(user_id=santa_id).user.name
@@ -658,7 +669,7 @@ class SantaBot:
                         logging.exception("Exception: {}.".format(this_ex))
             self.session.commit()
             message = self.message_strings[user_locality]["messages_sent"]
-            update.effective_message.reply_text(message)
+            self.reply_message(update=update, text=message)
         except Exception as this_ex:
             logging.exception(this_ex)
 
@@ -670,7 +681,7 @@ class SantaBot:
             group_link.receiver_id = None
         self.session.commit()
         message = self.message_strings[user_locality]["pairings_reset"]
-        update.effective_message.reply_text(message)
+        self.reply_message(update=update, text=message)
 
     def find_combination(self, participants, blocked_pairings):      
         #  permutations before removing blocked pairings
