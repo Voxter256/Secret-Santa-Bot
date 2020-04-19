@@ -198,7 +198,7 @@ class SantaBot:
 
     def send_message(self, context=None, chat_id=None, text=None, reply_markup=None):
         if context:
-            sent_message = context.bot.send_message(chat_id=chat_id.telegram_id, text=text, reply_markup=reply_markup)
+            sent_message = context.bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
             logging.info("Sent Message '{}' with ID {} to Chat {}".format(text, sent_message.message_id, chat_id))
             return
 
@@ -245,6 +245,7 @@ class SantaBot:
 
     def show_address(self, update: Update, context: CallbackContext):
         try:
+            logging.info("show_address | This Participant's Telegram ID: {}".format(str(update.effective_user.id)))
             chat_type = update.effective_chat.type
             user_locality = self.get_locality(update.effective_user)
             if chat_type != "private":
@@ -264,14 +265,13 @@ class SantaBot:
                     self.message_strings[user_locality]["current_address_2"]
                 self.send_message(context=context, chat_id=this_participant.telegram_id, text=message)
                 message = self.message_strings[user_locality]["address?"]
-                self.send_message(context=context, chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())
-            logging.info("show_address | This Participant ID: {}".format(str(this_participant.id)))
+                self.send_message(context=context, chat_id=this_participant.telegram_id, text=message, reply_markup=ForceReply())           
         except Exception as this_ex:
             logging.exception(this_ex)
 
     def address(self, update: Update, context: CallbackContext):
         try:
-            logging.info("address | {}".format(update))
+            logging.info("address | Telegram ID: {} Telegram Name: {} Text: {}".format(update.effective_user.id, update.effective_user.name, update.effective_message.text))
             user_locality = self.get_locality(update.effective_user)
             new_address = update.effective_message.text
             original_user = update.effective_message.reply_to_message.from_user

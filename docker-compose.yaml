@@ -4,8 +4,7 @@ services:
     bot:
       build:
         context: .
-      ports:
-        - "80:80"
-        - "443:443"
       volumes:
         - .:/usr/src/app
+      environment:
+        TZ: "America/New_York"
