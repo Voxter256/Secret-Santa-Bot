@@ -19,6 +19,7 @@ if __name__ == '__main__':
     dbConnection.createAll()
     bot.main()
 
+
 def lambda_handler(event, context):
 
     config = ConfigParser()
@@ -29,15 +30,14 @@ def lambda_handler(event, context):
     username = config.get('db', 'username')
     password = config.get('db', 'password')
     databaseName = config.get('db', 'database_name')
-    dbConnectionString = "mysql+mysqlconnector://{}:{}@{}:{}/{}".format(username, password, url, port, databaseName)
-    
+    dbConnectionString = (f"mysql+mysqlconnector://{username}:{password}@{url}:{port}/{databaseName}"
+
     dbConnection = DBConnection(dbConnectionString)
-    
+
     bot = LambdaSantaBot(dbConnection)
-    dbConnection.createAll()   
+    dbConnection.createAll()
     bot.process_message(event)
 
     return {
         'statusCode': 200,
     }
-

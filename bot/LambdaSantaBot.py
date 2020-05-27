@@ -14,10 +14,11 @@ class LambdaSantaBot(SantaBot):
         try:
             self.bot_id = int(self.token.split(":")[0])
         except:
-           self.bot_id = None
+            self.bot_id = None
 
         self.bot = Bot(self.token)
-        self.dispatcher = Dispatcher(self.bot, None, workers=0, use_context=True)
+        self.dispatcher = Dispatcher(
+            self.bot, None, workers=0, use_context=True)
 
         for handler in self.handlers:
             self.dispatcher.add_handler(handler)

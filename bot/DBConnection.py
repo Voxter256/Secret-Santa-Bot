@@ -10,7 +10,7 @@ class DBConnection():
         self.engine = create_engine(connectionString)
         sessionMaker = sessionmaker(bind=self.engine)
         self.session = sessionMaker()
-        
+
         configure_mappers()
 
     def createAll(self):
