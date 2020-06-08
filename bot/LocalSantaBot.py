@@ -14,14 +14,14 @@ class LocalSantaBot(SantaBot):
         try:
             self.bot_id = int(self.token.split(":")[0])
         except:
-           self.bot_id = None
+            self.bot_id = None
 
     def read_config(self):
         config = ConfigParser()
         configPath = os.path.normpath('config/config.ini')
         config.read(configPath)
         self.token = config.get('auth', 'token')
-   
+
     def main(self):
         updater = Updater(self.token, use_context=True)
 
