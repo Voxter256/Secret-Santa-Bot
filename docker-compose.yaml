@@ -1,10 +1,10 @@
-version: '3'
+version: "3"
 
 services:
-    bot:
-      build:
-        context: .
-      volumes:
-        - .:/usr/src/app
-      environment:
-        TZ: "America/New_York"
+  bot:
+    build:
+      context: .
+    volumes:
+      - .:/usr/src/app
+    environment:
+      TZ: "America/New_York"

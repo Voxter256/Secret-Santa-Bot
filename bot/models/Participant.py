@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String
 
 from bot.Base import Base
 
+
 class Participant(Base):
     __tablename__ = 'participants'
 
