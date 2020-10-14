@@ -1,5 +1,3 @@
-import json
-
 from bot.LambdaSantaBot import LambdaSantaBot
 from bot.LocalSantaBot import LocalSantaBot
 from bot.DBConnection import DBConnection
@@ -30,7 +28,11 @@ def lambda_handler(event, context):
     username = config.get('db', 'username')
     password = config.get('db', 'password')
     databaseName = config.get('db', 'database_name')
-    dbConnectionString = (f"mysql+mysqlconnector://{username}:{password}@{url}:{port}/{databaseName}"
+    dbConnectionString = (
+        f"mysql+mysqlconnector://"
+        f"{username}:{password}"
+        f"@{url}:{port}/{databaseName}"
+    )
 
     dbConnection = DBConnection(dbConnectionString)
 
