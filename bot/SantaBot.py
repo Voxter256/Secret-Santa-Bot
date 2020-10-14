@@ -1,3 +1,4 @@
+import datetime
 import logging
 import random
 import re
@@ -86,6 +87,8 @@ class SantaBot:
 
     def start(self, update: Update, context: CallbackContext):
         try:
+            if self.checkUpdateAgeExpired(update):
+                return
             chat_type = update.effective_chat.type
             user_locality = self.get_locality(update.effective_user)
             if chat_type != "private":
@@ -141,12 +144,16 @@ class SantaBot:
             logging.exception(this_ex)
 
     def help(self, update: Update, context: CallbackContext):
+        if self.checkUpdateAgeExpired(update):
+            return
         user_locality = self.get_locality(update.effective_user)
         message = self.message_strings[user_locality]["help"]
         self.reply_message(update=update, text=message)
 
     def show_address(self, update: Update, context: CallbackContext):
         try:
+            if self.checkUpdateAgeExpired(update):
+                return
             logging.info(
                 f"show_address | "
                 f"This Participant's Telegram ID: {update.effective_user.id}")
@@ -188,6 +195,8 @@ class SantaBot:
 
     def address(self, update: Update, context: CallbackContext):
         try:
+            if self.checkUpdateAgeExpired(update):
+                return
             logging.info(
                 f"address | Telegram ID: {update.effective_user.id} "
                 f"Telegram Name: {update.effective_user.name} "
@@ -254,6 +263,8 @@ class SantaBot:
 
     def hello(self, update: Update, context: CallbackContext):
         try:
+            if self.checkUpdateAgeExpired(update):
+                return
             user_locality = self.get_locality(update.effective_user)
             chat_type = update.effective_chat.type
             if chat_type == "private":
@@ -280,6 +291,8 @@ class SantaBot:
 
     def join(self, update: Update, context: CallbackContext):
         try:
+            if self.checkUpdateAgeExpired(update):
+                return
             user_locality = self.get_locality(update.effective_user)
             chat_id = update.effective_chat.id
             user_id = update.effective_user.id
@@ -358,6 +371,8 @@ class SantaBot:
 
     def not_command(self, update: Update, context: CallbackContext):
         try:
+            if self.checkUpdateAgeExpired(update):
+                return
             logging.info(f"{update.effective_user.name}: not")
             user_locality = self.get_locality(update.effective_user)
             messageDict = self.message_strings[user_locality]
@@ -481,6 +496,8 @@ class SantaBot:
 
     def allow(self, update: Update, context: CallbackContext):
         try:
+            if self.checkUpdateAgeExpired(update):
+                return
             user_locality = self.get_locality(update.effective_user)
             messageDict = self.message_strings[user_locality]
             entities = update.effective_message.parse_entities()
@@ -584,6 +601,8 @@ class SantaBot:
 
     def leave(self, update: Update, context: CallbackContext):
         try:
+            if self.checkUpdateAgeExpired(update):
+                return
             user_locality = self.get_locality(update.effective_user)
             # delete in memberships
             this_link = self.session.query(Link).join(Link.santa).join(Group)\
@@ -603,6 +622,8 @@ class SantaBot:
 
     def status(self, update: Update, context: CallbackContext):
         try:
+            if self.checkUpdateAgeExpired(update):
+                return
             user_locality = self.get_locality(update.effective_user)
             messageDict = self.message_strings[user_locality]
             chat_id = update.effective_chat.id
@@ -676,6 +697,8 @@ class SantaBot:
 
     def start_exchange(self, update: Update, context: CallbackContext):
         try:
+            if self.checkUpdateAgeExpired(update):
+                return
             user_locality = self.get_locality(update.effective_user)
             messageDict = self.message_strings[user_locality]
             link_record_to_check = (
@@ -799,6 +822,8 @@ class SantaBot:
             logging.exception(this_ex)
 
     def reset_exchange(self, update: Update, context: CallbackContext):
+        if self.checkUpdateAgeExpired(update):
+            return
         user_locality = self.get_locality(update.effective_user)
         this_group_id = update.effective_chat.id
         group_links = self.session.query(Link).join(
@@ -889,3 +914,22 @@ class SantaBot:
         if locality not in ["en", "pt-br"]:
             locality = "en"
         return locality
+
+    @staticmethod
+    def checkUpdateAgeExpired(updateObject) -> bool:
+        try:
+            message = updateObject.effective_message
+            currentTime = datetime.datetime.now(datetime.timezone.utc)
+            originalDate = message.date.replace(tzinfo=datetime.timezone.utc)
+            messageAge = currentTime - originalDate
+            if messageAge > datetime.timedelta(minutes=1):
+                logging.warn(
+                    f"Discarding Message sent at {originalDate.isoformat()} "
+                    f"from user '{updateObject.effective_user}' "
+                    f"with text '{message.text}'"
+                )
+                return True
+        except Exception as e:
+            logging.exception(e)
+            return True
+        return False
