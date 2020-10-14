@@ -809,7 +809,8 @@ class SantaBot:
         message = self.message_strings[user_locality]["pairings_reset"]
         self.reply_message(update=update, text=message)
 
-    def find_combination(self, participants, blocked_pairings):
+    @classmethod
+    def find_combination(cls, participants, blocked_pairings):
         #  permutations before removing blocked pairings
         unfiltered_permutations = list(permutations(participants, 2))
         logging.info(
@@ -839,11 +840,12 @@ class SantaBot:
             filtered_permutations.items(), key=lambda x: len(x[1]))
 
         #  get random set of pairings if possible
-        success, result_set = self.get_random_pairing(sorted_permutations)
+        success, result_set = cls.get_random_pairing(sorted_permutations)
 
         return success, result_set
 
-    def get_random_pairing(self, remaining_participants, gifting=[]):
+    @classmethod
+    def get_random_pairing(cls, remaining_participants, gifting=[]):
         remaining_participants_copy = deepcopy(remaining_participants)
         this_participant = remaining_participants_copy.pop(0)
         logging.info(this_participant)
@@ -872,7 +874,7 @@ class SantaBot:
                 remaining_pairings.discard(random_receiver)
             if not possible:
                 continue
-            success, final_pairings = self.get_random_pairing(
+            success, final_pairings = cls.get_random_pairing(
                 new_remaining_participants, gifting)
             if success:
                 final_pairings[this_participant[0]] = random_receiver
