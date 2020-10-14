@@ -1,7 +1,6 @@
 import os.path
 
 from configparser import ConfigParser
-from telegram import Update
 from telegram.ext import Updater
 
 from bot.SantaBot import SantaBot
@@ -13,7 +12,7 @@ class LocalSantaBot(SantaBot):
         self.read_config()
         try:
             self.bot_id = int(self.token.split(":")[0])
-        except:
+        except Exception:
             self.bot_id = None
 
     def read_config(self):

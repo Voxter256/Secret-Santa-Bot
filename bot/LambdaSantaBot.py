@@ -13,7 +13,7 @@ class LambdaSantaBot(SantaBot):
         self.read_config()  # TODO Replace with Environment Variables
         try:
             self.bot_id = int(self.token.split(":")[0])
-        except:
+        except Exception:
             self.bot_id = None
 
         self.bot = Bot(self.token)
