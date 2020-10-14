@@ -66,7 +66,8 @@ class SantaBot:
         ]
 
     @staticmethod
-    def send_message(context=None, chat_id=None, text=None, reply_markup=None):
+    def send_message(context=None, chat_id=None,
+                     text=None, reply_markup=None):
         if context:
             sent_message = context.bot.send_message(
                 chat_id=chat_id, text=text, reply_markup=reply_markup)
