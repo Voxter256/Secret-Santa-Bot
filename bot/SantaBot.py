@@ -1,7 +1,6 @@
 import datetime
 import logging
 import random
-import re
 from collections import defaultdict
 from copy import deepcopy
 # from gettext import gettext as _
@@ -21,14 +20,6 @@ from bot.TextTranslations import message_strings
 
 
 class SantaBot:
-
-    address_regex_string = (
-        r"^\s*(?P<address>\d+(?: [A-Za-z0-9.#-]+)+),[ ]"
-        r"(?P<city>[A-Za-z-]+(?: [A-Za-z-]+)*)+,[ ]"
-        r"(?P<state>(?:[A-Za-z-]+ ?)+)[ ]"
-        r"(?P<zip>\d{5}(?:-\d{4})?)\s*$"
-    )
-    address_re = re.compile(address_regex_string, re.IGNORECASE)
 
     def __init__(self, dbConnection):
 
@@ -212,52 +203,22 @@ class SantaBot:
                 original_user.id == self.bot_id and
                 original_text == messageDict["address?"]
             ):
-                user_language_code = update.effective_user.language_code
-                address_match_object = self.address_re.match(new_address)
-                if user_language_code != "en":
-                    this_user = (
-                        self.session
-                        .query(Participant)
-                        .filter(
-                            Participant.telegram_id == update.effective_user.id
-                        ).first()
-                    )
-                    this_user.address = new_address
-                    self.session.commit()
+                this_user = (
+                    self.session
+                    .query(Participant)
+                    .filter(
+                        Participant.telegram_id == update.effective_user.id
+                    ).first()
+                )
+                this_user.address = new_address
+                self.session.commit()
 
-                    message = (
-                        messageDict["address_confirmation"] +
-                        new_address + "\n" +
-                        messageDict["post_confirm_instructions"]
-                    )
-                    self.reply_message(update=update, text=message)
-                elif address_match_object is not None:
-                    this_user = (
-                        self.session
-                        .query(Participant)
-                        .filter(
-                            Participant.telegram_id == update.effective_user.id
-                        ).first()
-                    )
-                    address_filtered = address_match_object.group()
-                    this_user.address = address_filtered
-                    self.session.commit()
-
-                    message = (
-                        messageDict["address_confirmation"] +
-                        address_filtered + "\n" +
-                        messageDict["post_confirm_instructions"]
-                    )
-                    self.reply_message(update=update, text=message)
-                else:
-                    message = messageDict["address_error"]
-                    self.reply_message(update=update, text=message)
-                    self.send_message(
-                        context=context,
-                        chat_id=update.effective_user.id,
-                        text=messageDict["address?"],
-                        reply_markup=ForceReply(),
-                    )
+                message = (
+                    messageDict["address_confirmation"] +
+                    new_address + "\n" +
+                    messageDict["post_confirm_instructions"]
+                )
+                self.reply_message(update=update, text=message)
         except Exception as this_ex:
             logging.exception(this_ex)
 
