@@ -724,7 +724,8 @@ class SantaBot:
 
             #  TODO Deal with failure
             if not success:
-                logging.info("Matching Impossible")
+                message = "Matching Impossible: 0 Permutations"
+                self.reply_message(update=update, text=message)
                 return
 
             chatInfo = update.effective_chat
