@@ -3,7 +3,7 @@ import logging
 import random
 from collections import defaultdict
 from copy import deepcopy
-# from gettext import gettext as _
+from gettext import gettext
 from itertools import permutations
 
 from sqlalchemy import or_
@@ -16,7 +16,6 @@ from bot.models.BlockedLinks import BlockedLink
 from bot.models.Group import Group
 from bot.models.Link import Link
 from bot.models.Participant import Participant
-from bot.TextTranslations import message_strings
 
 
 class SantaBot:
@@ -36,8 +35,7 @@ class SantaBot:
             level=logging.INFO,
             format='%(asctime)s %(message)s'
         )
-
-        self.message_strings = message_strings
+        # TODO Handle getting locale from message
 
         self.token = None
         self.bot_id = None
@@ -81,9 +79,9 @@ class SantaBot:
             if self.checkUpdateAgeExpired(update):
                 return
             chat_type = update.effective_chat.type
-            user_locality = self.get_locality(update.effective_user)
+            _ = self.gettext_translation(update.effective_user)
             if chat_type != "private":
-                message = self.message_strings[user_locality]["private_error"]
+                message = _('You must send me this in a private chat')
                 self.reply_message(update=update, text=message)
                 return
             user_id = update.effective_user.id
@@ -99,13 +97,13 @@ class SantaBot:
                     telegram_id=user_id, telegram_username=user_username)
                 self.session.add(this_participant)
                 self.session.commit()
-                message = self.message_strings[user_locality]["hello"]
+                message = _('Hello! Lets get you setup!')
                 self.send_message(
                     context=context,
                     chat_id=this_participant.telegram_id,
                     text=message,
                 )
-                message = self.message_strings[user_locality]["address?"]
+                message = _('What is your address? (Reply to this message to change it)')  # noqa: E501
                 self.send_message(
                     context=context,
                     chat_id=this_participant.telegram_id,
@@ -113,7 +111,7 @@ class SantaBot:
                     reply_markup=ForceReply(),
                 )
             elif this_participant.address is None:
-                message = self.message_strings[user_locality]["address?"]
+                message = _('What is your address? (Reply to this message to change it)')  # noqa: E501
                 self.send_message(
                     context=context,
                     chat_id=this_participant.telegram_id,
@@ -121,9 +119,7 @@ class SantaBot:
                     reply_markup=ForceReply(),
                 )
             else:
-                already_setup = (
-                    self.message_strings[user_locality]["already_setup"]
-                )
+                already_setup = _('You are already set up. I have your address as:') + '\n'  # noqa: E501
                 message = already_setup + this_participant.address
                 self.send_message(
                     context=context,
@@ -137,8 +133,41 @@ class SantaBot:
     def help(self, update: Update, context: CallbackContext):
         if self.checkUpdateAgeExpired(update):
             return
-        user_locality = self.get_locality(update.effective_user)
-        message = self.message_strings[user_locality]["help"]
+        _ = self.gettext_translation(update.effective_user)
+        message = (
+            _("Command List:") + "\n" +
+
+            "/start \n" +
+            _("Sent only in a private message to begin personal setup.") + "\n" +  # noqa: E501
+
+            "/hello \n" +
+            _("Sent only in a group chat to enable the gift exchange.") + "\n" +  # noqa: E501
+
+            "/address \n" +
+            _("Sent only in a private message to show and update your address.") + "\n" +  # noqa: E501
+
+            "/join \n" +
+            _("Joins you in the gift exchange in this chat.") + "\n" +  # noqa: E501
+
+            "/status \n" +
+            _("Gets the status of this chat's exchange.") + "\n" +
+
+            "/not @Mention \n" +
+            _("Prevents you from being paired up with this participant.") + "\n" +  # noqa: E501
+
+            "/allow @Mention \n" +
+            _("Removes block that was preventing you from being paired up with this participant.") + "\n" +  # noqa: E501
+
+            "/leave \n" +
+            _("You will leave the gift exchange in this chat.") + "\n" +
+
+            "/start_exchange \n" +
+            _("Begins the gift exchange by assigning a recipient to every participant, "  # noqa: E501
+                "then messaging them privately the details.") + "\n" +
+
+            "/reset_exchange \n" +
+            _("Resets the gift exchange by removing every participant's assigned recipient.")  # noqa: E501
+        )
         self.reply_message(update=update, text=message)
 
     def show_address(self, update: Update, context: CallbackContext):
@@ -146,12 +175,12 @@ class SantaBot:
             if self.checkUpdateAgeExpired(update):
                 return
             logging.info(
-                f"show_address | "
+                "show_address | "
                 f"This Participant's Telegram ID: {update.effective_user.id}")
             chat_type = update.effective_chat.type
-            user_locality = self.get_locality(update.effective_user)
+            _ = self.gettext_translation(update.effective_user)
             if chat_type != "private":
-                message = self.message_strings[user_locality]["private_error"]
+                message = _("You must send me this in a private chat")
                 self.reply_message(update=update, text=message)
                 return
             user_id = update.effective_user.id
@@ -160,21 +189,21 @@ class SantaBot:
             this_participant = self.session.query(Participant).filter(
                 Participant.telegram_id == user_id).first()
             if this_participant is None:
-                message = self.message_strings[user_locality]["send_start"]
+                message = _("Send me a /start in a private message, then follow the instructions!")  # noqa: E501
                 self.reply_message(update=update, text=message)
                 return
             else:
                 message = (
-                    self.message_strings[user_locality]["current_address_1"] +
+                    _("I currently have your address as") + "\n" +
                     str(this_participant.address) + "\n" +
-                    self.message_strings[user_locality]["current_address_2"]
+                    _("If that is correct, you can ignore the following message.")  # noqa: E501
                 )
                 self.send_message(
                     context=context,
                     chat_id=this_participant.telegram_id,
                     text=message,
                 )
-                message = self.message_strings[user_locality]["address?"]
+                message = _("What is your address? (Reply to this message to change it)")  # noqa: E501
                 self.send_message(
                     context=context,
                     chat_id=this_participant.telegram_id,
@@ -193,15 +222,14 @@ class SantaBot:
                 f"Telegram Name: {update.effective_user.name} "
                 f"Text: {update.effective_message.text}"
             )
-            user_locality = self.get_locality(update.effective_user)
-            messageDict = self.message_strings[user_locality]
+            _ = self.gettext_translation(update.effective_user)
             new_address = update.effective_message.text
             original_user = update.effective_message.reply_to_message.from_user
             original_text = update.effective_message.reply_to_message.text
 
             if (
                 original_user.id == self.bot_id and
-                original_text == messageDict["address?"]
+                original_text == _("What is your address? (Reply to this message to change it)")  # noqa: E501
             ):
                 this_user = (
                     self.session
@@ -214,9 +242,12 @@ class SantaBot:
                 self.session.commit()
 
                 message = (
-                    messageDict["address_confirmation"] +
+                    _("OK, I have added your address as: ") +
                     new_address + "\n" +
-                    messageDict["post_confirm_instructions"]
+                    _("You can now to use the /join command in any Telegram Secret Santa group!") + "\n" +  # noqa: E501
+                    _("A Telegram Secret Santa group only needs to be activated once.") + "\n" +  # noqa: E501
+                    _("To do so, I must be a member of a telegram group ") +  # noqa: E501
+                    _("and someone needs to activate me with the command /hello")  # noqa: E501
                 )
                 self.reply_message(update=update, text=message)
         except Exception as this_ex:
@@ -226,10 +257,10 @@ class SantaBot:
         try:
             if self.checkUpdateAgeExpired(update):
                 return
-            user_locality = self.get_locality(update.effective_user)
+            _ = self.gettext_translation(update.effective_user)
             chat_type = update.effective_chat.type
             if chat_type == "private":
-                message = self.message_strings[user_locality]["group_error"]
+                message = _("You must begin from a group chat")
                 self.reply_message(update=update, text=message)
                 return
 
@@ -244,7 +275,11 @@ class SantaBot:
             else:
                 logging.info(f"hello | group_exists.id: {group_exists.id}")
 
-            message = self.message_strings[user_locality]["hello_done"]
+            message = (
+                _("Hello! ") +
+                _("This group chat now has the options of participating in a Secret Santa Exchange!") + "\n" +  # noqa: E501
+                _("/join to participate")
+            )
             self.reply_message(update=update, text=message)
             return
         except Exception as this_ex:
@@ -254,7 +289,7 @@ class SantaBot:
         try:
             if self.checkUpdateAgeExpired(update):
                 return
-            user_locality = self.get_locality(update.effective_user)
+            _ = self.gettext_translation(update.effective_user)
             chat_id = update.effective_chat.id
             user_id = update.effective_user.id
             user_username = update.effective_user.username
@@ -267,21 +302,21 @@ class SantaBot:
             logging.info(f"Type of Chat: {chat_type}")
 
             if chat_type == "private":
-                message = self.message_strings[user_locality]["group_error"]
+                message = _("You must begin from a group chat")
                 self.reply_message(update=update, text=message)
                 return
 
             this_participant = self.session.query(Participant).filter(
                 Participant.telegram_id == user_id).first()
             if this_participant is None:
-                message = self.message_strings[user_locality]["start_private"]
+                message = _("Send me a /start in a private message, then follow the instructions!")  # noqa: E501
                 self.reply_message(update=update, text=message)
                 return
 
             if this_participant.address is None:
-                message = self.message_strings[user_locality]["need_address"]
+                message = _("I need your address first! I am sending you a private message now.")  # noqa: E501
                 self.reply_message(update=update, text=message)
-                message = self.message_strings[user_locality]["address?"]
+                message = _("What is your address? (Reply to this message to change it)")  # noqa: E501
                 self.send_message(
                     context=context,
                     chat_id=this_participant.telegram_id,
@@ -316,16 +351,16 @@ class SantaBot:
                 this_group = self.session.query(Group).filter(
                     Group.telegram_id == chat_id).first()
                 if this_group is None:
-                    message = self.message_strings[user_locality]["say_hello"]
+                    message = _("Someone must /hello first!")
                     self.reply_message(update=update, text=message)
                     return
                 self.session.add(
                     Link(santa_id=this_participant.id, group_id=this_group.id))
                 self.session.commit()
-                message = self.message_strings[user_locality]["in"]
+                message = _("OK, you're in!")
                 self.reply_message(update=update, text=message)
             else:
-                message = self.message_strings[user_locality]["already_joined"]
+                message = _("You have already joined!")
                 self.reply_message(update=update, text=message)
         except Exception as this_ex:
             logging.exception(this_ex)
@@ -335,8 +370,7 @@ class SantaBot:
             if self.checkUpdateAgeExpired(update):
                 return
             logging.info(f"{update.effective_user.name}: not")
-            user_locality = self.get_locality(update.effective_user)
-            messageDict = self.message_strings[user_locality]
+            _ = self.gettext_translation(update.effective_user)
             entities = update.effective_message.parse_entities()
             for entity, entity_text in entities.items():
                 entity_type = entity.type
@@ -379,10 +413,10 @@ class SantaBot:
                                 )
                             )
                         else:
-                            message = messageDict["already_blocked_pairing"]
+                            message = _("This blocked pairing has already been added.")  # noqa: E501
                             self.reply_message(update=update, text=message)
                     elif participant_by_username.id == this_participant.id:
-                        message = messageDict["not_yourself"]
+                        message = _("Don't worry, you won't get yourself")
                         self.reply_message(update=update, text=message)
                     else:
                         id_list = [this_participant.id,
@@ -402,10 +436,10 @@ class SantaBot:
                                     blocked_id=participant_by_username.id
                                     )
                                 )
-                            message = messageDict["block_successful"]
+                            message = _("OK, you can no longer matched with that participant.")  # noqa: E501
                             self.reply_message(update=update, text=message)
                         else:
-                            message = messageDict["already_blocked_pairing"]
+                            message = _("This blocked pairing has already been added.")  # noqa: E501
                             self.reply_message(update=update, text=message)
                 elif entity_type == "text_mention":
                     this_participant = (
@@ -425,7 +459,7 @@ class SantaBot:
                         ).first()
                     )
                     if mentioned_participant is None:
-                        message = messageDict["user_hasnt_joined"]
+                        message = _("This participant needs to join first")
                         self.reply_message(update=update, text=message)
                     else:
                         id_list = [this_participant.id,
@@ -445,10 +479,10 @@ class SantaBot:
                                     blocked_id=mentioned_participant.id
                                 )
                             )
-                            message = messageDict["block_successful"]
+                            message = _("OK, you can no longer matched with that participant.")  # noqa: E501
                             self.reply_message(update=update, text=message)
                         else:
-                            message = messageDict["already_blocked_pairing"]
+                            message = _("This blocked pairing has already been added.")  # noqa: E501
                             self.reply_message(update=update, text=message)
 
             self.session.commit()
@@ -459,8 +493,7 @@ class SantaBot:
         try:
             if self.checkUpdateAgeExpired(update):
                 return
-            user_locality = self.get_locality(update.effective_user)
-            messageDict = self.message_strings[user_locality]
+            _ = self.gettext_translation(update.effective_user)
             entities = update.effective_message.parse_entities()
             for entity, entity_text in entities.items():
                 entity_type = entity.type
@@ -507,11 +540,12 @@ class SantaBot:
                     if blocked_link is not None:
                         self.session.delete(blocked_link)
                         self.session.commit()
-                        message = messageDict["allow_successful"] + entity_text
+                        message = _("You can now be assigned to ") + \
+                            entity_text
                         self.reply_message(update=update, text=message)
                     else:
                         message = entity_text + \
-                            messageDict["not_blocked"]
+                            _(" was not blocked by you.")
                         self.reply_message(update=update, text=message)
                 elif entity_type == "text_mention":
                     this_participant = (
@@ -551,11 +585,12 @@ class SantaBot:
                     if blocked_link is not None:
                         self.session.delete(blocked_link)
                         self.session.commit()
-                        message = messageDict["allow_successful"] + entity_text
+                        message = _("You can now be assigned to ") + \
+                            entity_text
                         self.reply_message(update=update, text=message)
                     else:
                         message = entity_text + \
-                            messageDict["not_blocked"]
+                            _(" was not blocked by you.")
                         self.reply_message(update=update, text=message)
         except Exception as this_ex:
             logging.exception(this_ex)
@@ -564,19 +599,19 @@ class SantaBot:
         try:
             if self.checkUpdateAgeExpired(update):
                 return
-            user_locality = self.get_locality(update.effective_user)
+            _ = self.gettext_translation(update.effective_user)
             # delete in memberships
             this_link = self.session.query(Link).join(Link.santa).join(Group)\
                 .filter(Participant.telegram_id == update.effective_user.id,
                         Group.telegram_id == update.effective_chat.id).first()
             if this_link is None:
-                message = self.message_strings[user_locality]["never_joined"]
+                message = _("You never joined")
                 self.reply_message(update=update, text=message)
             else:
                 self.session.query()
                 self.session.delete(this_link)
                 self.session.commit()
-                message = self.message_strings[user_locality]["done"]
+                message = _("Done.")
                 self.reply_message(update=update, text=message)
         except Exception as this_ex:
             logging.exception(this_ex)
@@ -585,15 +620,14 @@ class SantaBot:
         try:
             if self.checkUpdateAgeExpired(update):
                 return
-            user_locality = self.get_locality(update.effective_user)
-            messageDict = self.message_strings[user_locality]
+            _ = self.gettext_translation(update.effective_user)
             chat_id = update.effective_chat.id
             chat_type = update.effective_chat.type
             logging.info(f"Status | Chat ID: {chat_id}")
             logging.info(f"Type of Chat: {chat_type}")
 
             if chat_type == "private":
-                message = messageDict["group_error"]
+                message = _("You must begin from a group chat")
                 self.reply_message(update=update, text=message)
                 return
 
@@ -601,24 +635,21 @@ class SantaBot:
                 Group.telegram_id == chat_id).first()
 
             if this_group is None:
-                message = messageDict["say_hello"]
+                message = _("Someone must /hello first!")
                 self.reply_message(update=update, text=message)
                 return
 
             link_record_to_check = self.session.query(Link).join(Group).filter(
                 Group.telegram_id == update.effective_chat.id).first()
             if link_record_to_check.receiver_id is not None:
-                message = (
-                    f'{messageDict["exchange_finished"]}\n\n')
+                message = _("The exchange has finished") + '\n\n'
             else:
-                message = (
-                    f'{messageDict["exchange_waiting"]}\n\n')
+                message = _("The exchange has not begun") + '\n\n'
 
             # Get all Group Members
             group_links = this_group.links
 
-            message += (
-                f'{messageDict["joined_users"]}:\n')
+            message += _("Joined Users:") + '\n'
             for link in group_links:
                 this_participant = link.santa
                 chat_member = update.effective_chat.get_member(
@@ -646,8 +677,7 @@ class SantaBot:
                             # TODO Remove participant from chat
                             continue
                         if first:
-                            message += (
-                                f'{messageDict["cannot_pair_with"]}: ')
+                            message += _("Cannot pair with: ")
                             first = False
                         message += (f'{chat_member.user.name}, ')
                     message = message[:-2] + '\n'
@@ -660,8 +690,7 @@ class SantaBot:
         try:
             if self.checkUpdateAgeExpired(update):
                 return
-            user_locality = self.get_locality(update.effective_user)
-            messageDict = self.message_strings[user_locality]
+            _ = self.gettext_translation(update.effective_user)
             link_record_to_check = (
                 self.session
                 .query(Link)
@@ -671,11 +700,11 @@ class SantaBot:
                 ).first()
             )
             if link_record_to_check is None:
-                message = messageDict["no_one_joined"]
+                message = _("No one has Joined!")
                 self.reply_message(update=update, text=message)
                 return
             if link_record_to_check.receiver_id is not None:
-                message = messageDict["exchange_already_setup"]
+                message = _("The exchange has already been setup!")
                 self.reply_message(update=update, text=message)
                 return
 
@@ -724,7 +753,7 @@ class SantaBot:
 
             #  TODO Deal with failure
             if not success:
-                message = "Matching Impossible: 0 Permutations"
+                message = _("Matching Impossible: 0 Permutations")
                 self.reply_message(update=update, text=message)
                 return
 
@@ -749,17 +778,13 @@ class SantaBot:
                     santa_link.receiver_id = receiver.id
                     receiverUser = chatInfo.get_member(
                         user_id=receiver.telegram_id).user
-                    youGotUsername = (
-                        f"{chatTitle}| "
-                        f"{messageDict['you_got']}{receiverUser.name}"
-                    )
-                    if receiver.address:
-                        receiverAddress = receiver.address
-                    else:
-                        receiverAddress = "empty"
-                    youGotAddress = (
-                        messageDict["their_address_is"] + receiverAddress)
-                    message = youGotUsername + youGotAddress
+                    you_got = _("You got")
+                    youGotUsername = f"{chatTitle}| {you_got} {receiverUser.name}!"  # noqa: E501
+                    receiverAddress = receiver.address if receiver.address \
+                        else "empty"
+                    their_address_is = _("Their address is")
+                    youGotAddress = f"{their_address_is}: {receiverAddress}"
+                    message = f"{youGotUsername} {youGotAddress}"
                     self.send_message(
                         context=context,
                         chat_id=santa.telegram_id,
@@ -778,7 +803,7 @@ class SantaBot:
                     else:
                         logging.exception(f"Exception: {this_ex}.")
             self.session.commit()
-            message = messageDict["messages_sent"]
+            message = _("Messages have been sent!")
             self.reply_message(update=update, text=message)
         except Exception as this_ex:
             logging.exception(this_ex)
@@ -786,14 +811,14 @@ class SantaBot:
     def reset_exchange(self, update: Update, context: CallbackContext):
         if self.checkUpdateAgeExpired(update):
             return
-        user_locality = self.get_locality(update.effective_user)
+        _ = self.gettext_translation(update.effective_user)
         this_group_id = update.effective_chat.id
         group_links = self.session.query(Link).join(
             Group).filter(Group.telegram_id == this_group_id)
         for group_link in group_links:
             group_link.receiver_id = None
         self.session.commit()
-        message = self.message_strings[user_locality]["pairings_reset"]
+        message = _("All pairings have been reset")
         self.reply_message(update=update, text=message)
 
     @classmethod
@@ -869,6 +894,16 @@ class SantaBot:
             continue
         #  At this point, no combinations are valid
         return False, {}
+
+    @staticmethod
+    def gettext_translation(user):
+        locality = SantaBot.get_locality(user)
+        translation_instance = gettext.translation(
+            'bot',
+            './local/',
+            languages=[locality]
+        )
+        return translation_instance
 
     @staticmethod
     def get_locality(user):
