@@ -1,9 +1,10 @@
 import datetime
 import logging
+import pathlib
 import random
 from collections import defaultdict
 from copy import deepcopy
-from gettext import gettext
+from gettext import translation
 from itertools import permutations
 
 from sqlalchemy import or_
@@ -897,20 +898,22 @@ class SantaBot:
 
     @staticmethod
     def gettext_translation(user):
-        locality = SantaBot.get_locality(user)
-        translation_instance = gettext.translation(
-            'bot',
-            './local/',
-            languages=[locality]
+        domain = 'messages'
+        lang = SantaBot.get_locality(user)
+        localedir = pathlib.PurePath('bot/locale/')
+        translation_instance = translation(
+            domain,
+            localedir,
+            languages=[lang],
         )
-        return translation_instance
+        return translation_instance.gettext
 
     @staticmethod
     def get_locality(user):
         locality = user.language_code
         if locality not in ["en", "pt-br"]:
             locality = "en"
-        return locality
+        return locality.replace('-', '_')
 
     @staticmethod
     def checkUpdateAgeExpired(updateObject) -> bool:
