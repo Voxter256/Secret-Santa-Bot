@@ -190,13 +190,13 @@ class SantaBot:
             this_participant = self.session.query(Participant).filter(
                 Participant.telegram_id == user_id).first()
             if this_participant is None:
-                message = _("Send me a /start in a private message, then follow the instructions!")  # noqa: E501
+                message = _("Send me a {command} in a private message, then follow the instructions!").format(command='/start')  # noqa: E501
                 self.reply_message(update=update, text=message)
                 return
             else:
                 message = (
-                    _("I currently have your address as") + "\n" +
-                    str(this_participant.address) + "\n" +
+                    _("I currently have your address as {address}")
+                    .format(address=str(this_participant.address)) + "\n" +
                     _("If that is correct, you can ignore the following message.")  # noqa: E501
                 )
                 self.send_message(
@@ -245,10 +245,9 @@ class SantaBot:
                 message = (
                     _("OK, I have added your address as: ") +
                     new_address + "\n" +
-                    _("You can now to use the /join command in any Telegram Secret Santa group!") + "\n" +  # noqa: E501
+                    _("You can now to use {command} in any Telegram Secret Santa group!").format(command='/join') + "\n" +  # noqa: E501
                     _("A Telegram Secret Santa group only needs to be activated once.") + "\n" +  # noqa: E501
-                    _("To do so, I must be a member of a telegram group ") +  # noqa: E501
-                    _("and someone needs to activate me with the command /hello")  # noqa: E501
+                    _("To do so, I must be a member of a telegram group and someone needs to activate me with the command {command}").format(command='/hello')  # noqa: E501
                 )
                 self.reply_message(update=update, text=message)
         except Exception as this_ex:
@@ -279,7 +278,7 @@ class SantaBot:
             message = (
                 _("Hello! ") +
                 _("This group chat now has the options of participating in a Secret Santa Exchange!") + "\n" +  # noqa: E501
-                _("/join to participate")
+                _("{command} to participate").format(command='/join')
             )
             self.reply_message(update=update, text=message)
             return
@@ -310,7 +309,7 @@ class SantaBot:
             this_participant = self.session.query(Participant).filter(
                 Participant.telegram_id == user_id).first()
             if this_participant is None:
-                message = _("Send me a /start in a private message, then follow the instructions!")  # noqa: E501
+                message = _("Send me a {command} in a private message, then follow the instructions!").format(command='/start')  # noqa: E501
                 self.reply_message(update=update, text=message)
                 return
 
@@ -352,7 +351,7 @@ class SantaBot:
                 this_group = self.session.query(Group).filter(
                     Group.telegram_id == chat_id).first()
                 if this_group is None:
-                    message = _("Someone must /hello first!")
+                    message = _("Someone must say {command} first!").format(command='/hello')  # noqa: E501
                     self.reply_message(update=update, text=message)
                     return
                 self.session.add(
@@ -541,12 +540,10 @@ class SantaBot:
                     if blocked_link is not None:
                         self.session.delete(blocked_link)
                         self.session.commit()
-                        message = _("You can now be assigned to ") + \
-                            entity_text
+                        message = _("You can now be assigned to {name}").format(name=entity_text)  # noqa: E501
                         self.reply_message(update=update, text=message)
                     else:
-                        message = entity_text + \
-                            _(" was not blocked by you.")
+                        message = _("{name} was not blocked by you.").format(name=entity_text)  # noqa: E501
                         self.reply_message(update=update, text=message)
                 elif entity_type == "text_mention":
                     this_participant = (
@@ -586,12 +583,10 @@ class SantaBot:
                     if blocked_link is not None:
                         self.session.delete(blocked_link)
                         self.session.commit()
-                        message = _("You can now be assigned to ") + \
-                            entity_text
+                        message = _("You can now be assigned to {name}").format(name=entity_text)  # noqa: E501
                         self.reply_message(update=update, text=message)
                     else:
-                        message = entity_text + \
-                            _(" was not blocked by you.")
+                        message = _("{name} was not blocked by you.").format(name=entity_text)  # noqa: E501
                         self.reply_message(update=update, text=message)
         except Exception as this_ex:
             logging.exception(this_ex)
@@ -636,7 +631,7 @@ class SantaBot:
                 Group.telegram_id == chat_id).first()
 
             if this_group is None:
-                message = _("Someone must /hello first!")
+                message = _("Someone must say {command} first!").format(command='/hello')  # noqa: E501
                 self.reply_message(update=update, text=message)
                 return
 
@@ -779,13 +774,12 @@ class SantaBot:
                     santa_link.receiver_id = receiver.id
                     receiverUser = chatInfo.get_member(
                         user_id=receiver.telegram_id).user
-                    you_got = _("You got")
-                    youGotUsername = f"{chatTitle}| {you_got} {receiverUser.name}!"  # noqa: E501
+                    you_got = _("You got {username}!").format(username=receiverUser.name)  # noqa: E501
+                    youGotUsername = f"{chatTitle}| {you_got}"
                     receiverAddress = receiver.address if receiver.address \
                         else "empty"
-                    their_address_is = _("Their address is")
-                    youGotAddress = f"{their_address_is}: {receiverAddress}"
-                    message = f"{youGotUsername} {youGotAddress}"
+                    their_address_is = _("Their address is: {address}.").format(address=receiverAddress)  # noqa: E501
+                    message = f"{youGotUsername} {their_address_is}"
                     self.send_message(
                         context=context,
                         chat_id=santa.telegram_id,
