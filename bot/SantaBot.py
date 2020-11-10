@@ -635,17 +635,23 @@ class SantaBot:
                 self.reply_message(update=update, text=message)
                 return
 
-            link_record_to_check = self.session.query(Link).join(Group).filter(
-                Group.telegram_id == update.effective_chat.id).first()
-            if link_record_to_check.receiver_id is not None:
-                message = _("The exchange has finished") + '\n\n'
-            else:
+            link_record_to_check = (
+                self.session.query(Link)
+                .join(Group)
+                .filter(Group.telegram_id == update.effective_chat.id)
+                .first()
+            )
+            if link_record_to_check is None:
                 message = _("The exchange has not begun") + '\n\n'
+            elif link_record_to_check.receiver_id is None:
+                message = _("The exchange has not begun") + '\n\n'
+            else:
+                message = _("The exchange has finished") + '\n\n'
 
             # Get all Group Members
             group_links = this_group.links
 
-            message += _("Joined Users:") + '\n'
+            message += _("Joined Users:")
             for link in group_links:
                 this_participant = link.santa
                 chat_member = update.effective_chat.get_member(
@@ -655,29 +661,39 @@ class SantaBot:
                 message += (f'\n{chat_member.user.name}\n')
 
                 blocked_participants = []
+
                 blocked_links = this_participant.blocked_link
                 for blocked_link in blocked_links:
-                    blocked_participants.append(blocked_link.blocker)
+                    blocked_participant = blocked_link.blocker
+                    try:
+                        chat_member = update.effective_chat.get_member(
+                                user_id=blocked_participant.telegram_id)
+                        blocked_participants.append(chat_member)
+                    except BadRequest:
+                        # TODO Remove participant from chat
+                        continue
+
                 blocker_links = this_participant.blocker_link
                 for blocker_link in blocker_links:
-                    blocked_participants.append(blocker_link.blocked)
-
+                    blocked_participant = blocker_link.blocked
+                    try:
+                        chat_member = update.effective_chat.get_member(
+                                user_id=blocked_participant.telegram_id)
+                        blocked_participants.append(chat_member)
+                    except BadRequest:
+                        # TODO Remove participant from chat
+                        continue
                 first = True
                 if blocked_participants:
-
                     for blocked_participant in blocked_participants:
-                        try:
-                            chat_member = update.effective_chat.get_member(
-                                user_id=blocked_participant.telegram_id)
-                        except BadRequest:
-                            # TODO Remove participant from chat
-                            continue
                         if first:
                             message += _("Cannot pair with: ")
                             first = False
-                        message += (f'{chat_member.user.name}, ')
-                    message = message[:-2] + '\n'
-                    message = message.replace('@', '')
+                        else:
+                            message += ', '
+                        message += (f'{chat_member.user.name}')
+                    message += '\n'
+            message = message.replace('@', '')
             self.reply_message(update=update, text=message)
         except Exception as this_ex:
             logging.exception(this_ex)
