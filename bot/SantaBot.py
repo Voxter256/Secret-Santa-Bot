@@ -494,6 +494,8 @@ class SantaBot:
             if self.checkUpdateAgeExpired(update):
                 return
             _ = self.gettext_translation(update.effective_user)
+
+            logging.info(f"allow | request: {update.effective_message.text}")
             entities = update.effective_message.parse_entities()
             for entity, entity_text in entities.items():
                 entity_type = entity.type
