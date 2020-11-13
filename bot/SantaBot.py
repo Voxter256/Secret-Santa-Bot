@@ -670,21 +670,34 @@ class SantaBot:
                     try:
                         chat_member = update.effective_chat.get_member(
                                 user_id=blocked_participant.telegram_id)
-                        blocked_participants.append(chat_member)
-                    except BadRequest:
+                        user_name = chat_member.user.name
+                        blocked_participants.append(user_name)
+                    except BadRequest as e:
+                        logging.WARN(
+                            f"Got exception {e} "
+                            f"for Participant {blocked_participant.id}"
+                        )
                         # TODO Remove participant from chat
                         continue
 
                 blocker_links = this_participant.blocker_link
                 for blocker_link in blocker_links:
-                    blocked_participant = blocker_link.blocked
+                    blocked_participant_by_id = blocker_link.blocked
+                    if blocked_participant_by_id:
+                        telegram_id = blocked_participant_by_id.telegram_id
                     try:
                         chat_member = update.effective_chat.get_member(
-                                user_id=blocked_participant.telegram_id)
-                        blocked_participants.append(chat_member)
+                                user_id=telegram_id
+                            )
+                            user_name = chat_member.user.name
+                            blocked_participants.append(user_name)
                     except BadRequest:
-                        # TODO Remove participant from chat
+                            # TODO Remove from group if participating
                         continue
+                    else:
+                        user_name = blocker_link.blocked_username
+                        if user_name:
+                            blocked_participants.append(user_name)
                 first = True
                 if blocked_participants:
                     for blocked_participant in blocked_participants:
@@ -693,7 +706,7 @@ class SantaBot:
                             first = False
                         else:
                             message += ', '
-                        message += (f'{chat_member.user.name}')
+                        message += blocked_participant
                     message += '\n'
             message = message.replace('@', '')
             self.reply_message(update=update, text=message)
