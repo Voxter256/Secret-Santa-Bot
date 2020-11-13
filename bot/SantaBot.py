@@ -534,7 +534,7 @@ class SantaBot:
                         )
                         .filter(or_(
                             BlockedLink.blocked_username ==
-                            mentioned_participant,
+                            mentioned_participant.telegram_username,
 
                             BlockedLink.blocked_id == blocked_id)
                         ).first()
