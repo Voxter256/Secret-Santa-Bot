@@ -15,3 +15,6 @@ class DBConnection():
 
     def createAll(self):
         Base.metadata.create_all(self.engine)
+
+    def dropAll(self):
+        Base.metadata.drop_all(self.engine)
