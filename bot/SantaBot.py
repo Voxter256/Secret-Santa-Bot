@@ -685,15 +685,15 @@ class SantaBot:
                     blocked_participant_by_id = blocker_link.blocked
                     if blocked_participant_by_id:
                         telegram_id = blocked_participant_by_id.telegram_id
-                    try:
-                        chat_member = update.effective_chat.get_member(
+                        try:
+                            chat_member = update.effective_chat.get_member(
                                 user_id=telegram_id
                             )
                             user_name = chat_member.user.name
                             blocked_participants.append(user_name)
-                    except BadRequest:
+                        except BadRequest:
                             # TODO Remove from group if participating
-                        continue
+                            continue
                     else:
                         user_name = blocker_link.blocked_username
                         if user_name:
