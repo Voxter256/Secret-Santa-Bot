@@ -31,13 +31,6 @@ class SantaBot:
 
         self.session = dbConnection.session
 
-        logging.basicConfig(
-            filename='santabot.log',
-            level=logging.INFO,
-            format='%(asctime)s %(message)s'
-        )
-        # TODO Handle getting locale from message
-
         self.token = None
         self.bot_id = None
 
