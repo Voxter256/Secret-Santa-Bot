@@ -1,3 +1,4 @@
+import logging
 import os.path
 
 from configparser import ConfigParser
@@ -10,6 +11,13 @@ from bot.overrides.network_loop_retry_override import _network_loop_retry
 class LocalSantaBot(SantaBot):
     def __init__(self, dbConnection):
         super().__init__(dbConnection)
+
+        logging.basicConfig(
+            filename='santabot.log',
+            level=logging.INFO,
+            format='%(levelname)s %(asctime)s %(message)s'
+        )
+
         self.read_config()
         try:
             self.bot_id = int(self.token.split(":")[0])
