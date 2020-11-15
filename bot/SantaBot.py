@@ -2,6 +2,7 @@ import datetime
 import logging
 import pathlib
 import random
+import uuid
 from collections import defaultdict
 from copy import deepcopy
 from gettext import translation
@@ -802,14 +803,17 @@ class SantaBot:
         self, selected_combination, update, context, _
     ):
         for santa_id, receiver_id in selected_combination.items():
-            self.set_and_send_individual_result(
+            success = self.set_and_send_individual_result(
                 self.session,
-                update.effective_chat,
+                update,
                 context,
                 santa_id,
                 receiver_id,
                 _
             )
+            if not success:
+                self.session.rollback()
+                return
         self.session.commit()
         message = _("Messages have been sent!")
         self.reply_message(update=update, text=message)
@@ -817,14 +821,16 @@ class SantaBot:
     @staticmethod
     def set_and_send_individual_result(
         db_session: Session,
-        telegram_chat: Chat,
+        update: Update,
         context: CallbackContext,
         santa_id: int,
         receiver_id: int,
         _,
     ) -> bool:
         success = False
-        receiverUser = None
+        telegram_chat = update.effective_chat
+        santa = None
+        receiver = None
         try:
             santa = db_session.query(Participant).get(santa_id)
             receiver = db_session.query(Participant).get(receiver_id)
@@ -849,15 +855,21 @@ class SantaBot:
             success = True
 
         except Exception as this_ex:
-            if santa_id and receiverUser:
+            exception_id = uuid.uuid4()
+            if santa and receiver:
                 logging.exception(
-                    f"Exception: {this_ex}. "
-                    f"Santa ID: {santa_id} "
-                    f"Receiver ID: {receiverUser.id} "
-                    f"Receiver Name: {receiverUser.name}"
+                    f"Exception {exception_id}: {this_ex}. "
+                    f"Santa ID: {santa.id} "
+                    f"Santa Name: {santa.telegram_id} "
+                    f"Receiver ID: {receiver.id} "
+                    f"Receiver Name: {receiver.telegram_id}"
                 )
             else:
-                logging.exception(f"Exception: {this_ex}.")
+                logging.exception(f"Exception {exception_id}: {this_ex}.")
+
+            message = _("Error: {error}. Error ID: {id}") \
+                .format(error=this_ex, id=exception_id)
+            SantaBot.reply_message(update=update, text=message)
 
         return success
 
