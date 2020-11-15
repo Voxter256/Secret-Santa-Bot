@@ -8,7 +8,8 @@ from gettext import translation
 from itertools import permutations
 
 from sqlalchemy import or_
-from telegram import ForceReply, Update
+from sqlalchemy.orm.session import Session
+from telegram import Chat, ForceReply, Update
 from telegram.error import BadRequest
 from telegram.ext import CallbackContext, CommandHandler, MessageHandler
 from telegram.ext.filters import Filters
@@ -787,55 +788,119 @@ class SantaBot:
                 self.reply_message(update=update, text=message)
                 return
 
-            chatInfo = update.effective_chat
-            chatTitle = str(chatInfo.title)
+            self.save_and_send_exchange_results(
+                selected_combination,
+                update,
+                context,
+                _
+            )
 
-            for santa_id, receiver_id in selected_combination.items():
-                receiverUser = None
-                try:
-                    santa = self.session.query(Participant).get(santa_id)
-                    receiver = self.session.query(Participant).get(receiver_id)
-
-                    santa_link = (
-                        self.session
-                        .query(Link)
-                        .join(Group)
-                        .filter(
-                            Link.santa_id == santa.id,
-                            Group.telegram_id == chatInfo.id
-                        ).first()
-                    )
-                    santa_link.receiver_id = receiver.id
-                    receiverUser = chatInfo.get_member(
-                        user_id=receiver.telegram_id).user
-                    you_got = _("You got {username}!") \
-                        .format(username=receiverUser.name)
-                    youGotUsername = f"{chatTitle}| {you_got}"
-                    receiverAddress = receiver.address if receiver.address \
-                        else "empty"
-                    their_address_is = _("Their address is: {address}.") \
-                        .format(address=receiverAddress)
-                    message = f"{youGotUsername} {their_address_is}"
-                    self.send_message(
-                        context=context,
-                        chat_id=santa.telegram_id,
-                        text=message,
-                        )
-                except Exception as this_ex:
-                    if santa_id and receiverUser:
-                        logging.exception(
-                            f"Exception: {this_ex}. "
-                            f"Santa ID: {santa_id} "
-                            f"Receiver ID: {receiverUser.id} "
-                            f"Receiver Name: {receiverUser.name}"
-                        )
-                    else:
-                        logging.exception(f"Exception: {this_ex}.")
-            self.session.commit()
-            message = _("Messages have been sent!")
-            self.reply_message(update=update, text=message)
         except Exception as this_ex:
             logging.exception(this_ex)
+
+    def save_and_send_exchange_results(
+        self, selected_combination, update, context, _
+    ):
+        for santa_id, receiver_id in selected_combination.items():
+            self.set_and_send_individual_result(
+                self.session,
+                update.effective_chat,
+                context,
+                santa_id,
+                receiver_id,
+                _
+            )
+        self.session.commit()
+        message = _("Messages have been sent!")
+        self.reply_message(update=update, text=message)
+
+    @staticmethod
+    def set_and_send_individual_result(
+        db_session: Session,
+        telegram_chat: Chat,
+        context: CallbackContext,
+        santa_id: int,
+        receiver_id: int,
+        _,
+    ) -> bool:
+        success = False
+        receiverUser = None
+        try:
+            santa = db_session.query(Participant).get(santa_id)
+            receiver = db_session.query(Participant).get(receiver_id)
+
+            SantaBot.set_individual_result(
+                db_session, telegram_chat, santa, receiver
+            )
+
+            receiverUser = telegram_chat.get_member(
+                user_id=receiver.telegram_id).user
+
+            message = SantaBot.generate_result_message(
+                telegram_chat, receiver, receiverUser.name, _
+            )
+
+            SantaBot.send_message(
+                context=context,
+                chat_id=santa.telegram_id,
+                text=message,
+                )
+
+            success = True
+
+        except Exception as this_ex:
+            if santa_id and receiverUser:
+                logging.exception(
+                    f"Exception: {this_ex}. "
+                    f"Santa ID: {santa_id} "
+                    f"Receiver ID: {receiverUser.id} "
+                    f"Receiver Name: {receiverUser.name}"
+                )
+            else:
+                logging.exception(f"Exception: {this_ex}.")
+
+        return success
+
+    @staticmethod
+    def set_individual_result(
+        db_session: Session,
+        telegram_chat: Chat,
+        santa: Participant,
+        receiver: Participant,
+    ):
+        santa_link = (
+            db_session
+            .query(Link)
+            .join(Group)
+            .filter(
+                Link.santa_id == santa.id,
+                Group.telegram_id == telegram_chat.id
+            ).first()
+        )
+        santa_link.receiver_id = receiver.id
+        # Not saved until committed
+
+    @staticmethod
+    def generate_result_message(
+        telegram_chat: Chat,
+        receiver: Participant,
+        receiver_name: str,
+        _
+    ) -> str:
+
+        chat_title = str(telegram_chat.title)
+
+        you_got = _("You got {username}!") \
+            .format(username=receiver_name)
+        youGotUsername = f"{chat_title}| {you_got}"
+
+        receiverAddress = receiver.address if receiver.address \
+            else "?"
+        their_address_is = _("Their address is: {address}.") \
+            .format(address=receiverAddress)
+
+        message = f"{youGotUsername} {their_address_is}"
+        return message
 
     def reset_exchange(self, update: Update, context: CallbackContext):
         if self.checkUpdateAgeExpired(update):
