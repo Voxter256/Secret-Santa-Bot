@@ -23,6 +23,10 @@ from bot.models.Participant import Participant
 
 class SantaBot:
 
+    supported_languages = [
+        "de", "en", "pt-br", "fr", "it", "ru",
+    ]
+
     def __init__(self, dbConnection):
 
         # create dummy DB Models so backrefs work
@@ -1016,7 +1020,7 @@ class SantaBot:
     @staticmethod
     def get_locality(user):
         locality = user.language_code
-        if locality not in ["de", "en", "pt-br"]:
+        if locality not in SantaBot.supported_languages:
             locality = "en"
         return locality.replace('-', '_')
 
