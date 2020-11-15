@@ -12,11 +12,14 @@ class LocalSantaBot(SantaBot):
     def __init__(self, dbConnection):
         super().__init__(dbConnection)
 
-        logging.basicConfig(
-            filename='santabot.log',
-            level=logging.INFO,
-            format='%(levelname)s %(asctime)s %(message)s'
+        formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+        handler = logging.FileHandler(
+            filename='santabot.log', encoding='utf-8'
         )
+        handler.setFormatter(formatter)
+        logger = logging.getLogger()
+        logger.setLevel(logging.INFO)
+        logger.addHandler(handler)
 
         self.read_config()
         try:
