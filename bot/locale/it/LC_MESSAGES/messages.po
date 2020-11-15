@@ -1,0 +1,249 @@
+# Italian translations for .
+# Copyright (C) 2020 ORGANIZATION
+# This file is distributed under the same license as the  project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2020.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version:  1\n"
+"Report-Msgid-Bugs-To: Voxter.256@gmail.com\n"
+"POT-Creation-Date: 2020-11-14 20:48-0500\n"
+"PO-Revision-Date: 2020-11-14 21:27-0500\n"
+"Last-Translator: John Elgin <Voxter.256@gmail.com>\n"
+"Language: it\n"
+"Language-Team: it <Voxter.256@gmail.com>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1)\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.8.0\n"
+
+#: bot/SantaBot.py:80 bot/SantaBot.py:179
+msgid "You must send me this in a private chat"
+msgstr "Devi inviarmelo in una chat privata"
+
+#: bot/SantaBot.py:96
+msgid "Hello! Lets get you setup!"
+msgstr "Ciao! Ti facciamo configurare!"
+
+#: bot/SantaBot.py:102 bot/SantaBot.py:110 bot/SantaBot.py:203
+#: bot/SantaBot.py:229 bot/SantaBot.py:318
+msgid "What is your address? (Reply to this message to change it)"
+msgstr "Qual è il tuo indirizzo? (Rispondi a questo messaggio per modificarlo)"
+
+#: bot/SantaBot.py:118
+msgid "You are already set up. I have your address as:"
+msgstr "Sei già impostato. Ho il tuo indirizzo come:"
+
+#: bot/SantaBot.py:134
+msgid "Command List:"
+msgstr "Elenco dei comandi:"
+
+#: bot/SantaBot.py:137
+msgid "Sent only in a private message to begin personal setup."
+msgstr ""
+"Inviato solo in un messaggio privato per iniziare la configurazione "
+"personale."
+
+#: bot/SantaBot.py:140
+msgid "Sent only in a group chat to enable the gift exchange."
+msgstr "Inviato solo in una chat di gruppo per abilitare lo scambio di regali."
+
+#: bot/SantaBot.py:143
+msgid "Sent only in a private message to show and update your address."
+msgstr ""
+"Inviato solo in un messaggio privato per mostrare e aggiornare il tuo "
+"indirizzo."
+
+#: bot/SantaBot.py:146
+msgid "Joins you in the gift exchange in this chat."
+msgstr "Si unisce a te nello scambio di regali in questa chat."
+
+#: bot/SantaBot.py:149
+msgid "Gets the status of this chat's exchange."
+msgstr "Ottiene lo stato dello scambio di questa chat."
+
+#: bot/SantaBot.py:152
+msgid "Prevents you from being paired up with this participant."
+msgstr "Ti impedisce di essere associato a questo partecipante."
+
+#: bot/SantaBot.py:155
+msgid ""
+"Removes block that was preventing you from being paired up with this "
+"participant."
+msgstr ""
+"Rimuove il blocco che ti impediva di essere associato a questo "
+"partecipante."
+
+#: bot/SantaBot.py:158
+msgid "You will leave the gift exchange in this chat."
+msgstr "Lascerai lo scambio di regali in questa chat."
+
+#: bot/SantaBot.py:161
+msgid ""
+"Begins the gift exchange by assigning a recipient to every participant, "
+"then messaging them privately the details."
+msgstr ""
+"Inizia lo scambio di regali assegnando un destinatario a ogni "
+"partecipante, quindi inviando loro un messaggio privato con i dettagli."
+
+#: bot/SantaBot.py:165
+msgid ""
+"Resets the gift exchange by removing every participant's assigned "
+"recipient."
+msgstr ""
+"Reimposta lo scambio di regali rimuovendo il destinatario assegnato a "
+"ogni partecipante."
+
+#: bot/SantaBot.py:188 bot/SantaBot.py:310
+msgid "Send me a {command} in a private message, then follow the instructions!"
+msgstr "Inviami un {command} in un messaggio privato, quindi segui le istruzioni!"
+
+#: bot/SantaBot.py:194
+msgid "I currently have your address as {address}"
+msgstr "Al momento ho il tuo indirizzo come {address}"
+
+#: bot/SantaBot.py:196
+msgid "If that is correct, you can ignore the following message."
+msgstr "Se è corretto, puoi ignorare il seguente messaggio."
+
+#: bot/SantaBot.py:242
+msgid "OK, I have added your address as: "
+msgstr "Ho aggiunto il tuo indirizzo come: "
+
+#: bot/SantaBot.py:244
+msgid "You can now to use {command} in any Telegram Secret Santa group!"
+msgstr ""
+"Ora puoi usare {command} in qualsiasi gruppo di Babbo Natale segreto di "
+"Telegram!"
+
+#: bot/SantaBot.py:246
+msgid "A Telegram Secret Santa group only needs to be activated once."
+msgstr ""
+"Un gruppo di Babbo Natale segreto di Telegram deve essere attivato solo "
+"una volta."
+
+#: bot/SantaBot.py:247
+msgid ""
+"To do so, I must be a member of a telegram group and someone needs to "
+"activate me with the command {command}"
+msgstr ""
+"Per farlo, devo essere un membro di un gruppo Telegram e qualcuno deve "
+"attivarmi con il comando {command}"
+
+#: bot/SantaBot.py:261 bot/SantaBot.py:303 bot/SantaBot.py:632
+msgid "You must begin from a group chat"
+msgstr "Devi iniziare da una chat di gruppo"
+
+#: bot/SantaBot.py:277
+msgid "Hello! "
+msgstr "Ciao! "
+
+#: bot/SantaBot.py:278
+msgid ""
+"This group chat now has the options of participating in a Secret Santa "
+"Exchange!"
+msgstr ""
+"Questa chat di gruppo ora ha la possibilità di partecipare a uno scambio "
+"di Babbo Natale segreto!"
+
+#: bot/SantaBot.py:279
+msgid "{command} to participate"
+msgstr "{command} per partecipare"
+
+#: bot/SantaBot.py:316
+msgid "I need your address first! I am sending you a private message now."
+msgstr "Prima mi serve il tuo indirizzo! Ti mando un messaggio privato adesso."
+
+#: bot/SantaBot.py:353 bot/SantaBot.py:640
+msgid "Someone must say {command} first!"
+msgstr "Qualcuno deve prima dire {command}!"
+
+#: bot/SantaBot.py:360
+msgid "OK, you're in!"
+msgstr "Sei in!"
+
+#: bot/SantaBot.py:363
+msgid "You have already joined!"
+msgstr "Ti sei già iscritto!"
+
+#: bot/SantaBot.py:416 bot/SantaBot.py:442 bot/SantaBot.py:485
+msgid "This blocked pairing has already been added."
+msgstr "Questo accoppiamento bloccato è già stato aggiunto."
+
+#: bot/SantaBot.py:419
+msgid "Don't worry, you won't get yourself"
+msgstr "Non preoccuparti, non ti prenderai"
+
+#: bot/SantaBot.py:439 bot/SantaBot.py:482
+msgid "OK, you can no longer matched with that participant."
+msgstr "Non puoi più abbinare a quel partecipante."
+
+#: bot/SantaBot.py:462
+msgid "This participant needs to join first"
+msgstr "Questo partecipante deve prima iscriversi"
+
+#: bot/SantaBot.py:545 bot/SantaBot.py:590
+msgid "You can now be assigned to {name}"
+msgstr "Ora puoi essere assegnato a {name}"
+
+#: bot/SantaBot.py:549 bot/SantaBot.py:594
+msgid "{name} was not blocked by you."
+msgstr "{name} non è stato bloccato da te."
+
+#: bot/SantaBot.py:610
+msgid "You never joined"
+msgstr "Non ti sei mai unito"
+
+#: bot/SantaBot.py:616
+msgid "Done."
+msgstr "Fatto."
+
+#: bot/SantaBot.py:652 bot/SantaBot.py:654
+msgid "The exchange has not begun"
+msgstr "Lo scambio non è iniziato"
+
+#: bot/SantaBot.py:656
+msgid "The exchange has finished"
+msgstr "Lo scambio è terminato"
+
+#: bot/SantaBot.py:661
+msgid "Joined Users:"
+msgstr "Utenti iscritti:"
+
+#: bot/SantaBot.py:710
+msgid "Cannot pair with: "
+msgstr "Impossibile accoppiare con: "
+
+#: bot/SantaBot.py:735
+msgid "No one has Joined!"
+msgstr "Nessuno si è iscritto!"
+
+#: bot/SantaBot.py:739
+msgid "The exchange has already been setup!"
+msgstr "Lo scambio è già stato impostato!"
+
+#: bot/SantaBot.py:788
+msgid "Matching Impossible: 0 Permutations"
+msgstr "Corrispondenza impossibile: 0 permutazioni"
+
+#: bot/SantaBot.py:818
+msgid "Messages have been sent!"
+msgstr "I messaggi sono stati inviati!"
+
+#: bot/SantaBot.py:870
+msgid "Error: {error}. Error ID: {id}"
+msgstr "Errore: {errore}. ID errore: {id}"
+
+#: bot/SantaBot.py:905
+msgid "You got {username}!"
+msgstr "Hai {username}!"
+
+#: bot/SantaBot.py:911
+msgid "Their address is: {address}."
+msgstr "Il loro indirizzo è: {address}."
+
+#: bot/SantaBot.py:927
+msgid "All pairings have been reset"
+msgstr "Tutti gli accoppiamenti sono stati ripristinati"
+
