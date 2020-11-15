@@ -823,11 +823,9 @@ class SantaBot:
                         )
                 except Exception as this_ex:
                     if santa_id and receiverUser:
-                        santaName = chatInfo.get_member(
-                            user_id=santa_id).user.name
                         logging.exception(
-                            f"Exception: {this_ex}. Santa ID: {santa_id} "
-                            f"Santa Name: {santaName} got "
+                            f"Exception: {this_ex}. "
+                            f"Santa ID: {santa_id} "
                             f"Receiver ID: {receiverUser.id} "
                             f"Receiver Name: {receiverUser.name}"
                         )
