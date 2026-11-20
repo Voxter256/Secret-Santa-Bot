@@ -10,9 +10,9 @@
 
 ## Testing
 
-- [ ] Add unit tests for core pairing logic: `find_combination`, `get_random_pairing`
-- [ ] Add tests for message handler flows: `join`, `leave`, `not`, `allow`, `status`
-- [ ] Add tests for `set_and_send_individual_result`
+- [x] Add unit tests for core pairing logic: `find_combination`, `get_random_pairing`
+- [x] Add tests for message handler flows: `join`, `leave`, `not`, `allow`, `status`
+- [x] Add tests for `set_and_send_individual_result`
 - [ ] Add integration test for the start → join → exchange flow
 
 ## Build
