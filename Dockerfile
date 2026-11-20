@@ -1,12 +1,17 @@
-FROM python:3.8-buster
-
-# RUN apk add build-base
+FROM python:3.13-slim
 
 WORKDIR /usr/src/app
 
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
+# Copy dependency specs and lockfile
+COPY pyproject.toml uv.lock ./
+
+# Install dependencies from lockfile
+RUN uv sync --frozen --no-dev --no-cache
+
+# Copy the app source
 COPY . .
 
-CMD [ "python", "./run.py" ]
+CMD [ "uv", "run", "python", "./run.py" ]
