@@ -1,11 +1,10 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, configure_mappers
+from sqlalchemy.orm import configure_mappers, sessionmaker
 
 from bot.Base import Base
 
 
-class DBConnection():
-
+class DBConnection:
     def __init__(self, connectionString):
         self.engine = create_engine(connectionString)
         sessionMaker = sessionmaker(bind=self.engine)

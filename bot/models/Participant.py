@@ -4,7 +4,7 @@ from bot.Base import Base
 
 
 class Participant(Base):
-    __tablename__ = 'participants'
+    __tablename__ = "participants"
 
     id = Column(Integer(), primary_key=True)
     telegram_id = Column(Integer, index=True)

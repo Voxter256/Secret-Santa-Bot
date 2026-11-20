@@ -1,6 +1,4 @@
 # Bot
-config/config.ini
-config/default_config.ini
 package/*
 
 # Secrets
@@ -59,5 +57,4 @@ Thumbs.db
 
 # uv #
 #######
-uv.lock
 .venv

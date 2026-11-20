@@ -1,0 +1,25 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: uv run python -m mypy bot/ tests/ run.py --ignore-missing-imports --follow-imports=silent --explicit-package-bases --no-strict-optional
+        language: system
+        pass_filenames: false
+        always_run: true
+
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: uv run python -m pytest tests/ --override-ini="python_files=Test*.py"
+        language: system
+        pass_filenames: false
+        always_run: true
