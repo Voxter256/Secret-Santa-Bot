@@ -3,8 +3,8 @@
 ## Housekeeping
 
 - [ ] Remove stale artifacts: `config/` directory (dead after env var switch), `santabot.log` (3.9MB), `bot.sqlite` (212KB), `santabot old.log`
-- [ ] Verify or delete `download` artifact committed in `zxqvyzny`
-- [ ] Review `v20_code_transition.py` — kept as reference, remove once migration is stable
+- [x] Remove `download` artifact accidentally committed in `zxqvyzny` — file purged from history
+- [x] Review `v20_code_transition.py` — kept as reference, remove once migration is stable
 - [ ] Rename `bot/models/BlockedLinks.py` — table name is misspelled (plural, inconsistent)
 - [ ] Move `status_query.sql` or remove from repo root
 
@@ -17,7 +17,7 @@
 
 ## Build
 
-- [ ] Verify Docker build works with updated Dockerfile (Python 3.13 + uv)
+- [x] Verify Docker build works with updated Dockerfile (Python 3.13 + uv)
 
 ## Future
 
