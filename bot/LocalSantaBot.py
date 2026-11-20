@@ -1,7 +1,6 @@
 import logging
-import os.path
+import os
 
-from configparser import ConfigParser
 from telegram.ext import Application
 
 from bot.SantaBot import SantaBot
@@ -20,17 +19,11 @@ class LocalSantaBot(SantaBot):
         logger.setLevel(logging.INFO)
         logger.addHandler(handler)
 
-        self.read_config()
+        self.token = os.environ['TELEGRAM_BOT_TOKEN']
         try:
             self.bot_id = int(self.token.split(":")[0])
         except Exception:
             self.bot_id = None
-
-    def read_config(self):
-        config = ConfigParser()
-        configPath = os.path.normpath('config/config.ini')
-        config.read(configPath)
-        self.token = config.get('auth', 'token')
 
     def main(self):
         application = (

@@ -1,8 +1,9 @@
+import os
+from os.path import isfile
+
+from bot.DBConnection import DBConnection
 from bot.LambdaSantaBot import LambdaSantaBot
 from bot.LocalSantaBot import LocalSantaBot
-from bot.DBConnection import DBConnection
-from configparser import ConfigParser
-from os.path import isfile, normpath
 
 
 if __name__ == '__main__':
@@ -20,20 +21,7 @@ if __name__ == '__main__':
 
 def lambda_handler(event, context):
 
-    config = ConfigParser()
-    configPath = normpath('config/config.ini')
-    config.read(configPath)
-    url = config.get('db', 'url')
-    port = config.get('db', 'port')
-    username = config.get('db', 'username')
-    password = config.get('db', 'password')
-    databaseName = config.get('db', 'database_name')
-    dbConnectionString = (
-        f"mysql+mysqlconnector://"
-        f"{username}:{password}"
-        f"@{url}:{port}/{databaseName}"
-    )
-
+    dbConnectionString = os.environ['DATABASE_URL']
     dbConnection = DBConnection(dbConnectionString)
 
     bot = LambdaSantaBot(dbConnection)

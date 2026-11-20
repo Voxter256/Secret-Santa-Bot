@@ -1,6 +1,10 @@
 # Bot
 config/config.ini
+config/default_config.ini
 package/*
+
+# Secrets
+.env
 
 # Visual Studio Code
 .vscode

@@ -1,6 +1,5 @@
-import os.path
+import os
 
-from configparser import ConfigParser
 from telegram import Bot, Update
 from telegram.ext import Application
 
@@ -10,7 +9,7 @@ from bot.SantaBot import SantaBot
 class LambdaSantaBot(SantaBot):
     def __init__(self, dbConnection):
         super().__init__(dbConnection)
-        self.read_config()  # TODO Replace with Environment Variables
+        self.token = os.environ['TELEGRAM_BOT_TOKEN']
         try:
             self.bot_id = int(self.token.split(":")[0])
         except Exception:
@@ -25,12 +24,6 @@ class LambdaSantaBot(SantaBot):
 
         for handler in self.handlers:
             self.application.add_handler(handler)
-
-    def read_config(self):  # TODO Replace with Environment Variables
-        config = ConfigParser()
-        configPath = os.path.normpath('config/config.ini')
-        config.read(configPath)
-        self.token = config.get('auth', 'token')
 
     def process_message(self, updateText):
         print('incoming message')
