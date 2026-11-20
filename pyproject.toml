@@ -1,0 +1,10 @@
+[project]
+name = "secret-santa-telegram-bot"
+version = "0.1.0"
+description = "Telegram Secret Santa Exchange Bot"
+requires-python = ">=3.9"
+dependencies = [
+    "python-telegram-bot>=22.0",
+    "sqlalchemy>=2.0",
+    "mysql-connector-python>=8.0.21",
+]
