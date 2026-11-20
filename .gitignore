@@ -1,48 +1,206 @@
-# Bot
-package/*
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[codz]
+*$py.class
 
-# Secrets
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py.cover
+*.lcov
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+.pybuilder/
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+# .python-version
+
+# pipenv
+# Pipfile.lock
+
+# uv
+# uv.lock
+
+# poetry
+# poetry.lock
+# poetry.toml
+
+# pdm
+.pdm-python
+.pdm-build/
+
+# pixi
+.pixi/*
+!.pixi/config.toml
+
+# PEP 582
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule*
+celerybeat.pid
+
+# Redis
+*.rdb
+*.aof
+*.pid
+
+# RabbitMQ
+mnesia/
+rabbitmq/
+rabbitmq-data/
+
+# ActiveMQ
+activemq-data/
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
 .env
+.envrc
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Conda environments
+conda-meta/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs / documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# PyCharm / JetBrains
+.idea/
+*.iml
+
+# Abstra
+.abstra/
 
 # Visual Studio Code
-.vscode
+.vscode/
+tempCodeRunnerFile.py
 
-# Atom
+# Ruff
+.ruff_cache/
+
+# PyPI configuration
+.pypirc
+
+# Marimo
+marimo/_static/
+marimo/_lsp/
+__marimo__/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# --- Project-specific ---
+
+# Bot package archive
+package/*
+
+# Atom editor
 .floo
 .flooignore
 
-# Compiled source #
-###################
-*.com
-*.class
-*.dll
-*.exe
-*.o
-*.so
-*.idea
-*.iml
-
-# Packages #
-############
-# it's better to unpack these files and commit the raw source
-# git has its own built in compression methods
-*.7z
-*.dmg
-*.gz
-*.iso
-*.jar
-*.rar
-*.tar
-*.zip
-
-# Logs and databases #
-######################
-*.log
+# SQL / database files
 *.sql
 *.sqlite
 
-# OS generated files #
-######################
+# macOS / Windows OS files
 .DS_Store
 .DS_Store?
 ._*
@@ -50,11 +208,3 @@ package/*
 .Trashes
 ehthumbs.db
 Thumbs.db
-
-# pycache #
-###########
-**/__pycache__/**
-
-# uv #
-#######
-.venv
