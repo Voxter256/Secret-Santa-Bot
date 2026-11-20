@@ -5,7 +5,7 @@
 - [ ] Remove stale artifacts: `config/` directory (dead after env var switch), `santabot.log` (3.9MB), `bot.sqlite` (212KB), `santabot old.log`
 - [x] Remove `download` artifact accidentally committed in `zxqvyzny` — file purged from history
 - [x] Review `v20_code_transition.py` — kept as reference, remove once migration is stable
-- [ ] Rename `bot/models/BlockedLinks.py` — table name is misspelled (plural, inconsistent)
+- [x] Rename `bot/models/BlockedLinks.py` → `BlockedLink.py` — filename was plural, inconsistent with other model files
 - [ ] Move `status_query.sql` or remove from repo root
 
 ## Testing

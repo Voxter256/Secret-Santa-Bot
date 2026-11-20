@@ -14,7 +14,7 @@ from telegram import Chat, ForceReply, Update
 from telegram.error import BadRequest
 from telegram.ext import CommandHandler, ContextTypes, MessageHandler, filters
 
-from bot.models.BlockedLinks import BlockedLink
+from bot.models.BlockedLink import BlockedLink
 from bot.models.Group import Group
 from bot.models.Link import Link
 from bot.models.Participant import Participant
