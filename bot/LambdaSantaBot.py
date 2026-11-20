@@ -2,7 +2,7 @@ import os.path
 
 from configparser import ConfigParser
 from telegram import Bot, Update
-from telegram.ext import Dispatcher
+from telegram.ext import Application
 
 from bot.SantaBot import SantaBot
 
@@ -17,11 +17,14 @@ class LambdaSantaBot(SantaBot):
             self.bot_id = None
 
         self.bot = Bot(self.token)
-        self.dispatcher = Dispatcher(
-            self.bot, None, workers=0, use_context=True)
+        self.application = (
+            Application.builder()
+            .bot(self.bot)
+            .build()
+        )
 
         for handler in self.handlers:
-            self.dispatcher.add_handler(handler)
+            self.application.add_handler(handler)
 
     def read_config(self):  # TODO Replace with Environment Variables
         config = ConfigParser()
@@ -33,5 +36,5 @@ class LambdaSantaBot(SantaBot):
         print('incoming message')
         print(updateText)
         decodedUpdate = Update.de_json(updateText, self.bot)
-        self.dispatcher.process_update(decodedUpdate)
+        self.application.process_update(decodedUpdate)
         self.session.close()
