@@ -18,6 +18,13 @@ from bot.models.BlockedLink import BlockedLink
 from bot.models.Group import Group
 from bot.models.Link import Link
 from bot.models.Participant import Participant
+from bot.repositories.sqlalchemy_repos import (
+    SqlBlockedLinkRepository,
+    SqlGroupRepository,
+    SqlLinkRepository,
+    SqlParticipantRepository,
+)
+from bot.services.exchange_service import ExchangeService
 
 
 class SantaBot:
@@ -41,6 +48,14 @@ class SantaBot:
 
         self.token = None
         self.bot_id = None
+
+        # Wire repositories and service
+        self.exchange = ExchangeService(
+            participants=SqlParticipantRepository(self.session),
+            groups=SqlGroupRepository(self.session),
+            links=SqlLinkRepository(self.session),
+            blocked_links=SqlBlockedLinkRepository(self.session),
+        )
 
         self.handlers = [
             CommandHandler("start", self.start),
@@ -254,15 +269,7 @@ class SantaBot:
                 await self.reply_message(update=update, text=message)
                 return
 
-            chat_id = update.effective_chat.id
-            group_exists = self.session.query(Group).filter(Group.telegram_id == chat_id).first()
-            if not group_exists:
-                logging.info("hello | new group")
-                new_group = Group(telegram_id=chat_id)
-                self.session.add(new_group)
-                self.session.commit()
-            else:
-                logging.info(f"hello | group_exists.id: {group_exists.id}")
+            self.exchange.find_or_create_group(update.effective_chat.id)
 
             message = (
                 _("Hello! ")
@@ -295,7 +302,7 @@ class SantaBot:
                 await self.reply_message(update=update, text=message)
                 return
 
-            this_participant = self.session.query(Participant).filter(Participant.telegram_id == user_id).first()
+            this_participant = self.exchange.get_participant(user_id)
             if this_participant is None:
                 message = _("Send me a {command} in a private message, then follow the instructions!").format(command="/start")  # noqa: E501
                 await self.reply_message(update=update, text=message)
@@ -313,27 +320,14 @@ class SantaBot:
                 )
                 return
 
-            # Check to see if there is a BlockedLink waiting, if so update it
-            this_participant_blocked_link = self.session.query(BlockedLink).filter(BlockedLink.blocked_username == user_username)
-            if this_participant_blocked_link is not None:
-                this_participant_blocked_link.blocked_id = this_participant.id
-                this_participant_blocked_link.blocked_username = None
-                self.session.commit()
-
-            this_link = (
-                self.session.query(Link).join(Group).filter(Group.telegram_id == chat_id, Link.santa_id == this_participant.id).first()
-            )
-            if this_link is None:
-                this_group = self.session.query(Group).filter(Group.telegram_id == chat_id).first()
-                if this_group is None:
-                    message = _("Someone must say {command} first!").format(command="/hello")
-                    await self.reply_message(update=update, text=message)
-                    return
-                self.session.add(Link(santa_id=this_participant.id, group_id=this_group.id))
-                self.session.commit()
+            result = self.exchange.join_group(this_participant.id, chat_id, user_username)
+            if result == "no_group":
+                message = _("Someone must say {command} first!").format(command="/hello")
+                await self.reply_message(update=update, text=message)
+            elif result == "joined":
                 message = _("OK, you're in!")
                 await self.reply_message(update=update, text=message)
-            else:
+            elif result == "already_joined":
                 message = _("You have already joined!")
                 await self.reply_message(update=update, text=message)
         except Exception as this_ex:
@@ -345,93 +339,38 @@ class SantaBot:
                 return
             logging.info(f"{update.effective_user.name}: not")
             _ = self.gettext_translation(update.effective_user)
+            user_id = update.effective_user.id
+            p = self.exchange.get_participant(user_id)
+            if p is None:
+                return
             entities = update.effective_message.parse_entities()
             for entity, entity_text in entities.items():
                 entity_type = entity.type
                 logging.info(f"not | entity type: {entity_type}")
                 if entity_type == "mention":
-                    this_participant = self.session.query(Participant).filter(Participant.telegram_id == update.effective_user.id).first()
-
-                    mentioned_participant = entity_text[1:]
-                    participant_by_username = (
-                        self.session.query(Participant).filter(Participant.telegram_username == mentioned_participant).first()
-                    )
-                    if participant_by_username is None:
-                        already_blocked = (
-                            self.session.query(BlockedLink)
-                            .filter(
-                                BlockedLink.participant_id == this_participant.id,
-                                BlockedLink.blocked_username == mentioned_participant,
-                            )
-                            .first()
-                        )
-                        if already_blocked is None:
-                            self.session.add(
-                                BlockedLink(
-                                    participant_id=this_participant.id,
-                                    blocked_username=mentioned_participant,
-                                )
-                            )
-                        else:
-                            message = _("This blocked pairing has already been added.")  # noqa: E501
-                            await self.reply_message(update=update, text=message)
-                    elif participant_by_username.id == this_participant.id:
+                    username = entity_text[1:]
+                    result = self.exchange.block_by_username(p.id, username)
+                    if result == "self_block":
                         message = _("Don't worry, you won't get yourself")
                         await self.reply_message(update=update, text=message)
-                    else:
-                        id_list = [this_participant.id, participant_by_username.id]
-                        in_blocked_list = (
-                            self.session.query(BlockedLink)
-                            .filter(
-                                BlockedLink.participant_id.in_(id_list),
-                                BlockedLink.blocked_id.in_(id_list),
-                            )
-                            .first()
-                        )
-                        if in_blocked_list is None:
-                            self.session.add(
-                                BlockedLink(
-                                    participant_id=this_participant.id,
-                                    blocked_id=participant_by_username.id,
-                                )
-                            )
-                            message = _("OK, you can no longer matched with that participant.")  # noqa: E501
-                            await self.reply_message(update=update, text=message)
-                        else:
-                            message = _("This blocked pairing has already been added.")  # noqa: E501
-                            await self.reply_message(update=update, text=message)
+                    elif result == "blocked":
+                        message = _("OK, you can no longer matched with that participant.")
+                        await self.reply_message(update=update, text=message)
+                    elif result == "already_blocked":
+                        message = _("This blocked pairing has already been added.")
+                        await self.reply_message(update=update, text=message)
                 elif entity_type == "text_mention":
-                    this_participant = self.session.query(Participant).filter(Participant.telegram_id == update.effective_user.id).first()
-
                     mentioned_user = entity.user
-                    mentioned_participant = self.session.query(Participant).filter(Participant.telegram_id == mentioned_user.id).first()
-                    if mentioned_participant is None:
+                    result = self.exchange.block_by_user_id(p.id, mentioned_user.id)
+                    if result == "needs_join_first":
                         message = _("This participant needs to join first")
                         await self.reply_message(update=update, text=message)
-                    else:
-                        id_list = [this_participant.id, mentioned_participant.id]
-                        in_blocked_list = (
-                            self.session.query(BlockedLink)
-                            .filter(
-                                BlockedLink.participant_id.in_(id_list),
-                                BlockedLink.blocked_id.in_(id_list),
-                            )
-                            .first()
-                        )
-                        if in_blocked_list is None:
-                            self.session.add(
-                                BlockedLink(
-                                    participant_id=this_participant.id,
-                                    blocked_id=mentioned_participant.id,
-                                )
-                            )
-                            message = _("OK, you can no longer matched with that participant.")  # noqa: E501
-                            await self.reply_message(update=update, text=message)
-                        else:
-                            message = _("This blocked pairing has already been added.")  # noqa: E501
-                            await self.reply_message(update=update, text=message)
-
-            self.session.commit()
+                    elif result == "blocked":
+                        message = _("OK, you can no longer matched with that participant.")
+                        await self.reply_message(update=update, text=message)
+                    elif result == "already_blocked":
+                        message = _("This blocked pairing has already been added.")
+                        await self.reply_message(update=update, text=message)
         except Exception as this_ex:
             logging.exception(this_ex)
 
@@ -442,62 +381,29 @@ class SantaBot:
             _ = self.gettext_translation(update.effective_user)
 
             logging.info(f"allow | request: {update.effective_message.text}")
+            p = self.exchange.get_participant(update.effective_user.id)
+            if p is None:
+                return
             entities = update.effective_message.parse_entities()
             for entity, entity_text in entities.items():
                 entity_type = entity.type
                 logging.info(f"allow | entity_type: {entity_type}")
                 if entity_type == "mention":
-                    this_participant = self.session.query(Participant).filter(Participant.telegram_id == update.effective_user.id).first()
+                    username = entity_text[1:]
+                    target = self.exchange._participants.get_by_username(username)  # noqa: SLF001
+                    blocked_id = target.id if target else 0
 
-                    mentioned_participant = entity_text[1:]
-
-                    mentioned_participant = (
-                        self.session.query(Participant).filter(Participant.telegram_username == mentioned_participant).first()
-                    )
-                    if mentioned_participant is None:
-                        blocked_id = 0
-                    else:
-                        blocked_id = mentioned_participant.id
-
-                    blocked_link = (
-                        self.session.query(BlockedLink)
-                        .join(BlockedLink.blocked, isouter=True)
-                        .filter(BlockedLink.participant_id == this_participant.id)
-                        .filter(
-                            or_(
-                                BlockedLink.blocked_username == mentioned_participant.telegram_username,
-                                BlockedLink.blocked_id == blocked_id,
-                            )
-                        )
-                        .first()
-                    )
-                    if blocked_link is not None:
-                        self.session.delete(blocked_link)
-                        self.session.commit()
+                    unblocked = self.exchange.unblock(p.id, username, blocked_id)
+                    if unblocked:
                         message = _("You can now be assigned to {name}").format(name=entity_text)
                         await self.reply_message(update=update, text=message)
                     else:
                         message = _("{name} was not blocked by you.").format(name=entity_text)
                         await self.reply_message(update=update, text=message)
                 elif entity_type == "text_mention":
-                    this_participant = self.session.query(Participant).filter(Participant.telegram_id == update.effective_user.id).first()
-
                     mentioned_user = entity.user
-                    mentioned_participant = self.session.query(Participant).filter(Participant.telegram_id == mentioned_user.id).first()
-                    if mentioned_participant is None:
-                        blocked_link = None
-                    else:
-                        blocked_link = (
-                            self.session.query(BlockedLink)
-                            .join(BlockedLink.blocked, isouter=True)
-                            .filter(BlockedLink.participant_id == this_participant.id)
-                            .filter(BlockedLink.blocked_id == mentioned_participant.id)
-                            .first()
-                        )
-
-                    if blocked_link is not None:
-                        self.session.delete(blocked_link)
-                        self.session.commit()
+                    unblocked = self.exchange.unblock(p.id, "", mentioned_user.id)
+                    if unblocked:
                         message = _("You can now be assigned to {name}").format(name=entity_text)
                         await self.reply_message(update=update, text=message)
                     else:
@@ -511,26 +417,13 @@ class SantaBot:
             if self.checkUpdateAgeExpired(update):
                 return
             _ = self.gettext_translation(update.effective_user)
-            # delete in memberships
-            this_link = (
-                self.session.query(Link)
-                .join(Link.santa)
-                .join(Group)
-                .filter(
-                    Participant.telegram_id == update.effective_user.id,
-                    Group.telegram_id == update.effective_chat.id,
-                )
-                .first()
-            )
-            if this_link is None:
+            p = self.exchange.get_participant(update.effective_user.id)
+            if p is None:
                 message = _("You never joined")
-                await self.reply_message(update=update, text=message)
             else:
-                self.session.query()
-                self.session.delete(this_link)
-                self.session.commit()
-                message = _("Done.")
-                await self.reply_message(update=update, text=message)
+                result = self.exchange.leave_group(p.id, update.effective_chat.id)
+                message = _("Done.") if result == "left" else _("You never joined")
+            await self.reply_message(update=update, text=message)
         except Exception as this_ex:
             logging.exception(this_ex)
 
@@ -549,23 +442,17 @@ class SantaBot:
                 await self.reply_message(update=update, text=message)
                 return
 
-            this_group = self.session.query(Group).filter(Group.telegram_id == chat_id).first()
+            status_label, group_links = self.exchange.get_exchange_status(chat_id)
 
-            if this_group is None:
+            if status_label == "no_group":
                 message = _("Someone must say {command} first!").format(command="/hello")
                 await self.reply_message(update=update, text=message)
                 return
 
-            link_record_to_check = self.session.query(Link).join(Group).filter(Group.telegram_id == update.effective_chat.id).first()
-            if link_record_to_check is None:
-                message = _("The exchange has not begun") + "\n\n"
-            elif link_record_to_check.receiver_id is None:
+            if status_label == "not_begun":
                 message = _("The exchange has not begun") + "\n\n"
             else:
                 message = _("The exchange has finished") + "\n\n"
-
-            # Get all Group Members
-            group_links = this_group.links
 
             message += _("Joined Users:")
             for link in group_links:
@@ -586,7 +473,6 @@ class SantaBot:
                         blocked_participants.append(user_name)
                     except BadRequest as e:
                         logging.warning(f"Got exception {e} for Participant {blocked_participant.id}")
-                        # TODO Remove participant from chat
                         continue
 
                 blocker_links = this_participant.blocker_link
@@ -599,7 +485,6 @@ class SantaBot:
                             user_name = chat_member.user.name
                             blocked_participants.append(user_name)
                         except BadRequest:
-                            # TODO Remove from group if participating
                             continue
                     else:
                         user_name = blocker_link.blocked_username
@@ -625,46 +510,44 @@ class SantaBot:
             if self.checkUpdateAgeExpired(update):
                 return
             _ = self.gettext_translation(update.effective_user)
-            link_record_to_check = self.session.query(Link).join(Group).filter(Group.telegram_id == update.effective_chat.id).first()
-            if link_record_to_check is None:
+            chat_id = update.effective_chat.id
+
+            setup_block = self.exchange.is_exchange_setup(chat_id)
+            if setup_block == "no_joins":
                 message = _("No one has Joined!")
                 await self.reply_message(update=update, text=message)
                 return
-            if link_record_to_check.receiver_id is not None:
+            if setup_block == "already_setup":
                 message = _("The exchange has already been setup!")
                 await self.reply_message(update=update, text=message)
                 return
 
-            this_group_id = update.effective_chat.id
-            group_participants_objects = (
-                self.session.query(Participant).join(Participant.link_santa).join(Group).filter(Group.telegram_id == this_group_id).all()
-            )
-
             # Remove participants that are no longer in the chat
+            links = self.exchange._links.get_links_in_group(chat_id)  # noqa: SLF001
             temp_participants_list = []
-            for group_participant in group_participants_objects:
+            for link in links:
                 try:
-                    await update.effective_chat.get_member(user_id=group_participant.telegram_id)
-                    temp_participants_list.append(group_participant)
+                    await update.effective_chat.get_member(user_id=link.santa.telegram_id)
+                    temp_participants_list.append(link.santa)
                 except BadRequest:
                     logging.warning(
                         "Participant with telegram id "
-                        f"{group_participant.telegram_id} "
+                        f"{link.santa.telegram_id} "
                         "is no longer in chat "
-                        f"with telegram id {this_group_id}"
+                        f"with telegram id {chat_id}"
                     )
-                    # TODO Remove participant from chat
                     continue
 
             group_participants = [x.id for x in temp_participants_list]
             logging.info(group_participants)
 
-            blocked_participants_objects = self.session.query(BlockedLink).filter(BlockedLink.participant_id.in_(group_participants)).all()
-            blocked_participants = [[x.participant_id, x.blocked_id] for x in blocked_participants_objects]
+            blocked_links = self.exchange._blocked_links.get_by_participant_ids(group_participants)  # noqa: SLF001
+            blocked_pairings = [[x.participant_id, x.blocked_id] for x in blocked_links]
 
-            success, selected_combination = self.find_combination(group_participants, blocked_participants)
+            success, selected_combination = self.exchange._pairing.find_combination(  # noqa: SLF001
+                group_participants, blocked_pairings
+            )
 
-            #  TODO Deal with failure
             if not success:
                 message = _("Matching Impossible: 0 Permutations")
                 await self.reply_message(update=update, text=message)
@@ -762,11 +645,7 @@ class SantaBot:
         if self.checkUpdateAgeExpired(update):
             return
         _ = self.gettext_translation(update.effective_user)
-        this_group_id = update.effective_chat.id
-        group_links = self.session.query(Link).join(Group).filter(Group.telegram_id == this_group_id)
-        for group_link in group_links:
-            group_link.receiver_id = None
-        self.session.commit()
+        self.exchange.reset_exchange(update.effective_chat.id)
         message = _("All pairings have been reset")
         await self.reply_message(update=update, text=message)
 
