@@ -812,7 +812,7 @@ class SantaBot:
             return True, final_pairings
 
         while len(participant_pairings) > 0:
-            random_receiver = random.sample(participant_pairings, 1)[0]
+            random_receiver = random.sample(list(participant_pairings), 1)[0]
             participant_pairings.remove(random_receiver)
             possible = True
             new_remaining_participants = deepcopy(remaining_participants_copy)
