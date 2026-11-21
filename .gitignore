@@ -208,3 +208,7 @@ package/*
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# CodeGraph local data
+.codegraph/
+codegraph/
