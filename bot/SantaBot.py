@@ -5,8 +5,9 @@ import random
 import uuid
 from collections import defaultdict
 from copy import deepcopy
-from gettext import translation
+from gettext import find, translation
 from itertools import permutations
+from typing import Callable
 
 from sqlalchemy import or_
 from sqlalchemy.orm.session import Session
@@ -25,6 +26,9 @@ from bot.repositories.sqlalchemy_repos import (
     SqlParticipantRepository,
 )
 from bot.services.exchange_service import ExchangeService
+
+TRANSLATION_DOMAIN = "messages"
+LOCALE_DIR = pathlib.Path(__file__).parent / "locale"
 
 
 class SantaBot:
@@ -56,6 +60,9 @@ class SantaBot:
             links=SqlLinkRepository(self.session),
             blocked_links=SqlBlockedLinkRepository(self.session),
         )
+
+        # Load every message catalog once instead of re-reading the .mo per update
+        self.translations: dict[str, Callable[[str], str]] = self.preload_translations()
 
         self.handlers = [
             CommandHandler("start", self.start),
@@ -711,21 +718,32 @@ class SantaBot:
         #  At this point, no combinations are valid
         return False, {}
 
-    @staticmethod
-    def gettext_translation(user):
-        domain = "messages"
-        lang = SantaBot.get_locality(user)
-        localedir = pathlib.PurePath("bot/locale/")
-        translation_instance = translation(
-            domain,
-            localedir,
-            languages=[lang],
-        )
-        return translation_instance.gettext
+    def preload_translations(self) -> dict[str, Callable[[str], str]]:
+        """Load every supported message catalog once, keyed by locale directory."""
+        translations = {
+            language.replace("-", "_"): self.load_translation(language.replace("-", "_")) for language in self.supported_languages
+        }
+        fallback = translations.get("en") or (lambda message: message)
+        translations["en"] = fallback
+        return {locale_name: loaded or fallback for locale_name, loaded in translations.items()}
 
     @staticmethod
-    def get_locality(user):
-        locality = user.language_code
+    def load_translation(locale_name: str) -> Callable[[str], str] | None:
+        if find(TRANSLATION_DOMAIN, LOCALE_DIR, languages=[locale_name]) is None:
+            logging.warning(f"No message catalog found for locale '{locale_name}'")
+            return None
+        return translation(
+            TRANSLATION_DOMAIN,
+            LOCALE_DIR,
+            languages=[locale_name],
+        ).gettext
+
+    def gettext_translation(self, user) -> Callable[[str], str]:
+        return self.translations.get(self.get_locality(user), self.translations["en"])
+
+    @staticmethod
+    def get_locality(user) -> str:
+        locality = (user.language_code or "").lower()
         if locality not in SantaBot.supported_languages:
             locality = "en"
         return locality.replace("-", "_")
