@@ -11,10 +11,11 @@ from alembic import context
 # access to the values within the .ini file in use.
 config = context.config
 
-# Use DATABASE_URL env var if set (matches docker-compose / Lambda env)
-db_url = os.getenv("DATABASE_URL")
+# Explicit caller argument wins, then the environment (docker-compose /
+# Lambda), then the URL in alembic.ini.
+db_url = config.attributes.get("db_url") or os.getenv("DATABASE_URL")
 if db_url:
-    config.set_main_option("sqlalchemy.url", db_url)
+    config.set_main_option("sqlalchemy.url", db_url.replace("%", "%%"))
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -64,10 +65,19 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode.
 
-    In this scenario we need to create an Engine
-    and associate a connection with the context.
-
+    Uses the connection supplied via ``config.attributes['connection']`` when
+    present (needed for in-memory SQLite), otherwise builds an engine from the
+    configured URL.
     """
+    provided_connection = config.attributes.get("connection")
+    if provided_connection is not None:
+        context.configure(
+            connection=provided_connection, target_metadata=target_metadata
+        )
+        with context.begin_transaction():
+            context.run_migrations()
+        return
+
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",

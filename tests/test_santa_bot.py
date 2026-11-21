@@ -1,30 +1,63 @@
 import unittest
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
+from alembic.config import Config
+from alembic.script import ScriptDirectory
+from sqlalchemy import inspect, text
+
+from bot._migrate import run_migrations
 from bot.DBConnection import DBConnection
-from bot.SantaBot import SantaBot
 from bot.models.BlockedLink import BlockedLink
 from bot.models.Group import Group
 from bot.models.Link import Link
 from bot.models.Participant import Participant
+from bot.SantaBot import SantaBot
 
 
-class TestSantaBot(unittest.IsolatedAsyncioTestCase):
+class MigratedDatabaseTestCase(unittest.IsolatedAsyncioTestCase):
+    """Per-test in-memory SQLite database whose schema is built by the real migrations."""
+
     dbConnection: DBConnection
     bot: SantaBot
 
-    @classmethod
-    def setUpClass(cls) -> None:
-        dbConnectionString = "sqlite:///:memory:"
-        cls.dbConnection = DBConnection(dbConnectionString)
-        cls.bot = SantaBot(cls.dbConnection)
-
     def setUp(self) -> None:
-        self.dbConnection.createAll()
+        self.db_url = "sqlite://"
+        self.dbConnection = DBConnection(self.db_url)
+        with self.dbConnection.engine.connect() as connection:
+            run_migrations(self.db_url, connection=connection)
+        self.bot = SantaBot(self.dbConnection)
 
     def tearDown(self) -> None:
-        self.dbConnection.dropAll()
+        self.bot.session.close()
+        self.dbConnection.engine.dispose()
 
+
+class TestSchemaFromMigrations(MigratedDatabaseTestCase):
+    """The test schema must be produced by Alembic, not Base.metadata."""
+
+    def test_migrations_create_expected_tables(self) -> None:
+        tables = set(inspect(self.dbConnection.engine).get_table_names())
+        self.assertEqual(
+            tables,
+            {
+                "alembic_version",
+                "blocked_links",
+                "exchange_events",
+                "groups",
+                "links",
+                "participants",
+                "wishlist_items",
+            },
+        )
+
+    def test_database_reports_head_revision(self) -> None:
+        head = ScriptDirectory.from_config(Config("alembic.ini")).get_current_head()
+        with self.dbConnection.engine.connect() as connection:
+            revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+        self.assertEqual(revision, head)
+
+
+class TestSantaBot(MigratedDatabaseTestCase):
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
     @patch.object(SantaBot, "checkUpdateAgeExpired")
@@ -143,24 +176,8 @@ class TestPairingLogic(unittest.TestCase):
         self.assertEqual(result[3], 2)
 
 
-class TestSantaBotHandlers(unittest.IsolatedAsyncioTestCase):
-    """Tests for message handler flows and set_and_send_individual_result using in-memory DB."""
-
-    dbConnection: DBConnection
-    bot: SantaBot
-
-    @classmethod
-    def setUpClass(cls) -> None:
-        dbConnectionString = "sqlite:///:memory:"
-        cls.dbConnection = DBConnection(dbConnectionString)
-        cls.bot = SantaBot(cls.dbConnection)
-
-    def setUp(self) -> None:
-        self.dbConnection.createAll()
-
-    def tearDown(self) -> None:
-        self.dbConnection.dropAll()
-        self.bot.session.rollback()
+class TestSantaBotHandlers(MigratedDatabaseTestCase):
+    """Tests for message handler flows and set_and_send_individual_result."""
 
     # -- helpers --
 
@@ -503,7 +520,7 @@ class TestSantaBotHandlers(unittest.IsolatedAsyncioTestCase):
         gettext_mock = MagicMock(side_effect=lambda s: s)
 
         with patch.object(SantaBot, "send_message", new_callable=AsyncMock) as mock_send:
-            with patch.object(SantaBot, "reply_message", new_callable=AsyncMock) as mock_reply:
+            with patch.object(SantaBot, "reply_message", new_callable=AsyncMock):
                 success = await SantaBot.set_and_send_individual_result(
                     self.bot.session, update, context, santa.id, receiver.id, gettext_mock
                 )
@@ -525,7 +542,7 @@ class TestSantaBotHandlers(unittest.IsolatedAsyncioTestCase):
         gettext_mock = MagicMock(side_effect=lambda s: s)
 
         with patch.object(SantaBot, "send_message", new_callable=AsyncMock) as mock_send:
-            with patch.object(SantaBot, "reply_message", new_callable=AsyncMock) as mock_reply:
+            with patch.object(SantaBot, "reply_message", new_callable=AsyncMock):
                 success = await SantaBot.set_and_send_individual_result(
                     self.bot.session, update, context, 999, 888, gettext_mock
                 )

@@ -162,9 +162,7 @@ class ExchangeService:
 
         return self._pairing.find_combination(participants, blocked_pairings)
 
-    def assign_receiver(
-        self, db_session, chat_id: int, santa_id: int, receiver_id: int
-    ) -> None:
+    def assign_receiver(self, chat_id: int, santa_id: int, receiver_id: int) -> None:
         link = self._links.get_by_santa_and_group(santa_id, chat_id)
         if link:
             self._links.set_receiver(link, receiver_id)

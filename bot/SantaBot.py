@@ -41,7 +41,7 @@ class SantaBot:
         "ru",
     ]
 
-    def __init__(self, dbConnection):
+    def __init__(self, dbConnection, exchange: ExchangeService | None = None):
         # create dummy DB Models so backrefs work
         BlockedLink()
         Group()
@@ -53,8 +53,8 @@ class SantaBot:
         self.token = None
         self.bot_id = None
 
-        # Wire repositories and service
-        self.exchange = ExchangeService(
+        # Wire repositories and service; callers may inject their own service
+        self.exchange = exchange or ExchangeService(
             participants=SqlParticipantRepository(self.session),
             groups=SqlGroupRepository(self.session),
             links=SqlLinkRepository(self.session),
@@ -105,12 +105,10 @@ class SantaBot:
             user_id = update.effective_user.id
             user_username = update.effective_user.username
 
-            this_participant = self.session.query(Participant).filter(Participant.telegram_id == user_id).first()
+            this_participant = self.exchange.get_participant(user_id)
             if this_participant is None:
                 logging.info(f"Start | New Participant | ID: {user_id} Username: {user_username}")
-                this_participant = Participant(telegram_id=user_id, telegram_username=user_username)
-                self.session.add(this_participant)
-                self.session.commit()
+                this_participant = self.exchange.find_or_create_participant(user_id, user_username)
                 message = _("Hello! Lets get you setup!")
                 await self.send_message(
                     context=context,
@@ -200,7 +198,7 @@ class SantaBot:
             user_id = update.effective_user.id
             # user_username = update.effective_user.username
 
-            this_participant = self.session.query(Participant).filter(Participant.telegram_id == user_id).first()
+            this_participant = self.exchange.get_participant(user_id)
             if this_participant is None:
                 message = _("Send me a {command} in a private message, then follow the instructions!").format(command="/start")  # noqa: E501
                 await self.reply_message(update=update, text=message)
@@ -243,9 +241,9 @@ class SantaBot:
             if (
                 original_user.id == self.bot_id and original_text == _("What is your address? (Reply to this message to change it)")  # noqa: E501
             ):
-                this_user = self.session.query(Participant).filter(Participant.telegram_id == update.effective_user.id).first()
-                this_user.address = new_address
-                self.session.commit()
+                this_user = self.exchange.get_participant(update.effective_user.id)
+                if this_user is not None:
+                    self.exchange.update_address(this_user.id, new_address)
 
                 message = (
                     _("OK, I have added your address as: ")
