@@ -7,11 +7,11 @@ dependencies = [
     "python-telegram-bot>=22.0",
     "sqlalchemy>=2.0",
     "mysql-connector-python>=8.0.21",
+    "alembic>=1.16.5",
 ]
 
 [dependency-groups]
 dev = [
-    "alembic>=1.16.5",
     "mypy>=1.19.1",
     "pre-commit>=4.3.0",
     "pytest>=8.4.2",
