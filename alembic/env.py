@@ -29,6 +29,7 @@ from bot.models.Participant import Participant  # noqa: F401
 from bot.models.Group import Group  # noqa: F401
 from bot.models.Link import Link  # noqa: F401
 from bot.models.BlockedLink import BlockedLink  # noqa: F401
+from bot.models.ExchangeEvent import ExchangeEvent  # noqa: F401
 from bot.models.WishlistItem import WishlistItem  # noqa: F401
 
 target_metadata = Base.metadata
