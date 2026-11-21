@@ -36,4 +36,6 @@ warn_unused_ignores = true
 enable_error_code = ["ignore-without-code"]
 
 [tool.pytest.ini_options]
-python_files = ["Test*.py"]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+pythonpath = ["."]

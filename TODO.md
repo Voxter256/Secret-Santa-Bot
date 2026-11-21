@@ -5,7 +5,7 @@
 - [x] Bootstrap Alembic: 3 revisions matching current schema (`initial_schema`, `add_timestamps`, `add_exchange_events`)
 - [x] Call `run_migrations()` from both entrypoints in `run.py` — `__main__` and `lambda_handler`
 - [x] Move `alembic` from the dev group to `[project].dependencies` — the image installs with `uv sync --no-dev`, so `bot._migrate` previously raised ImportError at startup
-- [ ] Replace `DBConnection.createAll()` in `tests/TestSantaBot.py:23` and `:159` with `run_migrations()` — tests currently build the schema from `Base.metadata`, so no test exercises the migrations
+- [ ] Replace `DBConnection.createAll()` in `tests/test_santa_bot.py:23` and `:159` with `run_migrations()` — tests currently build the schema from `Base.metadata`, so no test exercises the migrations
 - [ ] Delete `DBConnection.createAll()` / `dropAll()` once tests no longer use them
 - [ ] Resolve `alembic.ini` by an absolute path anchored to the app root — `Config("alembic.ini")` in `bot/_migrate.py` is cwd-relative
 - [ ] Run migrations against MySQL — only SQLite has been executed (tests use `sqlite:///:memory:`, compose default is `sqlite:///bot.sqlite`)
