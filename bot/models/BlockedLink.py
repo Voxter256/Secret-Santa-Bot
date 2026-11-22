@@ -1,5 +1,5 @@
-from sqlalchemy import Column, ForeignKey, Integer, String
-from sqlalchemy.orm import backref, relationship
+from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy.orm import Mapped, backref, mapped_column, relationship
 
 from bot.Base import Base
 
@@ -7,10 +7,10 @@ from bot.Base import Base
 class BlockedLink(Base):
     __tablename__ = "blocked_links"
 
-    id = Column(Integer(), primary_key=True)
-    participant_id = Column(Integer, ForeignKey("participants.id"), index=True)
-    blocked_username = Column(String(32), index=True, nullable=True)
-    blocked_id = Column(
+    id: Mapped[int] = mapped_column(Integer(), primary_key=True)
+    participant_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("participants.id"), index=True)
+    blocked_username: Mapped[str | None] = mapped_column(String(32), index=True, nullable=True)
+    blocked_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey("participants.id"),
         index=True,

@@ -39,7 +39,7 @@
 - [x] Add tests for the exchange delivery paths (10): marks `notified_at`, continues past a `Forbidden` santa, treats `BadRequest` as unreachable, second run sends nothing, missing receiver, pairing survives a failed delivery, `/start_exchange` resumes pending, already-delivered short-circuit, `/reset_exchange` clears state, username fallback
 - [x] Cover translation preloading and locale resolution (`tests/test_translations.py`, 3 tests) — catalogs load once at construction, de/ru/pt-BR resolve, unknown and `None` fall back to English
 - [x] Run the suite without `PYTHONPATH=/workspace` — `pythonpath = ["."]` in `[tool.pytest.ini_options]`; 78 tests collected
-- [ ] Fix the 24 mypy errors so the pre-commit mypy hook passes — `bot/SantaBot.py` 10, `bot/repositories/sqlalchemy_repos.py` 6, `bot/services/exchange_service.py` 8
+- [x] Fix the 24 mypy errors so the pre-commit mypy hook passes — models annotated with `Mapped[...]`/`mapped_column()`, matching the nullability in the migrations; verified `mypy` clean across 24 files and no schema drift against a migrated database
 - [ ] Add integration test for the start → join → exchange flow
 
 ## Build
