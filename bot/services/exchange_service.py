@@ -136,6 +136,8 @@ class ExchangeService:
         link = self._links.get_first_in_group(chat_id)
         if link is None or link.receiver_id is None:
             return "not_begun", list(group.links)
+        if self._links.get_pending_notifications(chat_id):
+            return "delivery_pending", list(group.links)
         return "finished", list(group.links)
 
     def is_exchange_setup(self, chat_id: int) -> Optional[str]:

@@ -455,6 +455,16 @@ class SantaBot:
 
             if status_label == "not_begun":
                 message = _("The exchange has not begun") + "\n\n"
+            elif status_label == "delivery_pending":
+                pending = self.exchange.pending_deliveries(chat_id)
+                names = ", ".join(SantaBot.describe_participant(link.santa) for link in pending)
+                message = _("The exchange has finished, but {count} participant(s) were not messaged: {names}").format(
+                    count=len(pending),
+                    names=names,
+                ) + "\n\n"
+                message += _("Ask them to unblock the bot, then run {command} to resend.").format(
+                    command="/start_exchange"
+                ) + "\n\n"
             else:
                 message = _("The exchange has finished") + "\n\n"
 

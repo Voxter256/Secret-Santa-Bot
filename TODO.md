@@ -18,7 +18,7 @@
 - [x] Keep delivering past unreachable participants (`Forbidden` / `BadRequest`) and report them by `@username`
 - [x] Let `/start_exchange` resume only the undelivered links instead of replying "The exchange has already been setup!"
 - [x] Clear `receiver_id`, `assigned_at` and `notified_at` on `/reset_exchange`
-- [ ] `/status` must report pending deliveries instead of "The exchange has finished" — `get_exchange_status()` returns `finished` as soon as the first link has a receiver, regardless of `notified_at`
+- [x] `/status` must report pending deliveries instead of "The exchange has finished" — `get_exchange_status()` now returns `delivery_pending` when receivers exist but any link lacks `notified_at`; the handler names the undelivered participants and points at `/start_exchange`
 - [ ] Add `.po` entries for the admin string `Could not message: {names}. …` — it currently renders in English for every locale
 - [x] Test the `set_pairing()` skip branch — `test_assign_pairing_skips_santas_without_link`: a santa id in the pairing with no `links` row is skipped without raising, while the existing link still gets its `receiver_id` and `assigned_at`
 

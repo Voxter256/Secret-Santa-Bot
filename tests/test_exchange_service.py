@@ -153,8 +153,18 @@ class TestExchangeService(unittest.TestCase):
         mock_group.links = []
         self.groups.get_by_telegram_id.return_value = mock_group
         self.links.get_first_in_group.return_value = MagicMock(receiver_id=5)
+        self.links.get_pending_notifications.return_value = []
         status, links = self.service.get_exchange_status(1)
         self.assertEqual(status, "finished")
+
+    def test_get_exchange_status_delivery_pending(self):
+        mock_group = MagicMock()
+        mock_group.links = []
+        self.groups.get_by_telegram_id.return_value = mock_group
+        self.links.get_first_in_group.return_value = MagicMock(receiver_id=5)
+        self.links.get_pending_notifications.return_value = [MagicMock()]
+        status, links = self.service.get_exchange_status(1)
+        self.assertEqual(status, "delivery_pending")
 
     def test_is_exchange_setup_no_joins(self):
         self.links.get_first_in_group.return_value = None

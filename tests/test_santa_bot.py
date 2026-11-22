@@ -492,6 +492,38 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         text = kwargs.get("text", args[0] if args else "")
         self.assertIn("TestUser", text)
 
+    @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "send_message")
+    @patch.object(SantaBot, "checkUpdateAgeExpired")
+    async def test_status_reports_pending_deliveries(self, mock_expired, mock_send, mock_reply):
+        mock_expired.return_value = False
+        await self._setup_delivery()
+        update = self._make_update_mock(chat_type="group")
+        update.effective_chat.get_member = AsyncMock(return_value=self._member("Receiver"))
+
+        await self.bot.status(update, Mock())
+
+        text = mock_reply.call_args.kwargs["text"]
+        self.assertIn("were not messaged", text)
+        self.assertIn("Santa", text)
+        self.assertIn("/start_exchange", text)
+
+    @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "send_message")
+    @patch.object(SantaBot, "checkUpdateAgeExpired")
+    async def test_status_reports_finished_after_delivery(self, mock_expired, mock_send, mock_reply):
+        mock_expired.return_value = False
+        _santa, _receiver, _group, link = await self._setup_delivery()
+        self.bot.exchange.mark_delivered(link)
+        update = self._make_update_mock(chat_type="group")
+        update.effective_chat.get_member = AsyncMock(return_value=self._member("Receiver"))
+
+        await self.bot.status(update, Mock())
+
+        text = mock_reply.call_args.kwargs["text"]
+        self.assertIn("The exchange has finished", text)
+        self.assertNotIn("were not messaged", text)
+
     # -- exchange delivery tests --
 
     async def _setup_delivery(self, with_receiver=True):
