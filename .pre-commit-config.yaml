@@ -19,7 +19,7 @@ repos:
     hooks:
       - id: pytest
         name: pytest
-        entry: uv run python -m pytest tests/ --override-ini="python_files=Test*.py"
+        entry: uv run python -m pytest tests/
         language: system
         pass_filenames: false
         always_run: true

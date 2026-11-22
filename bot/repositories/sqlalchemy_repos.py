@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 from typing import Optional
 
 from sqlalchemy import or_
@@ -110,10 +111,40 @@ class SqlLinkRepository:
     def set_receiver(self, link: Link, receiver_id: int) -> None:
         link.receiver_id = receiver_id
 
+    def set_pairing(self, group_id: int, pairing: dict[int, int]) -> None:
+        """Persist the whole pairing in one transaction, before anything is sent."""
+        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        for santa_id, receiver_id in pairing.items():
+            link = self.get_by_santa_and_group(santa_id, group_id)
+            if link is None:
+                continue
+            link.receiver_id = receiver_id
+            link.assigned_at = now
+            link.notified_at = None
+        self._session.commit()
+
+    def get_pending_notifications(self, group_id: int) -> list[Link]:
+        return (
+            self._session.query(Link)
+            .join(Group)
+            .filter(
+                Group.telegram_id == group_id,
+                Link.receiver_id.isnot(None),
+                Link.notified_at.is_(None),
+            )
+            .all()
+        )
+
+    def mark_notified(self, link: Link) -> None:
+        link.notified_at = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        self._session.commit()
+
     def clear_receivers_in_group(self, group_id: int) -> None:
         links = self.get_links_in_group(group_id)
         for link in links:
             link.receiver_id = None
+            link.assigned_at = None
+            link.notified_at = None
         self._session.commit()
 
 

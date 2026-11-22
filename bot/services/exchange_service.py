@@ -167,6 +167,16 @@ class ExchangeService:
         if link:
             self._links.set_receiver(link, receiver_id)
 
+    def assign_pairing(self, chat_id: int, pairing: dict[int, int]) -> None:
+        """Persist the whole pairing atomically, before delivery is attempted."""
+        self._links.set_pairing(chat_id, pairing)
+
+    def pending_deliveries(self, chat_id: int) -> list[Link]:
+        return self._links.get_pending_notifications(chat_id)
+
+    def mark_delivered(self, link: Link) -> None:
+        self._links.mark_notified(link)
+
     def reset_exchange(self, chat_id: int) -> None:
         self._links.clear_receivers_in_group(chat_id)
 

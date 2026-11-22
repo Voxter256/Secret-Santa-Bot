@@ -1,9 +1,11 @@
+import datetime
 import unittest
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from sqlalchemy import inspect, text
+from telegram.error import BadRequest, Forbidden
 
 from bot._migrate import run_migrations
 from bot.DBConnection import DBConnection
@@ -491,94 +493,183 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         text = kwargs.get("text", args[0] if args else "")
         self.assertIn("TestUser", text)
 
-    # -- set_and_send_individual_result tests --
+    # -- exchange delivery tests --
 
-    async def test_set_and_send_individual_result_success(self):
+    async def _setup_delivery(self, with_receiver=True):
         santa = Participant(telegram_id=10, telegram_username="Santa", address="North Pole")
         receiver = Participant(telegram_id=20, telegram_username="Receiver", address="Somewhere")
-        self.bot.session.add(santa)
-        self.bot.session.add(receiver)
-        self.bot.session.commit()
-
         group = Group(telegram_id=1)
-        self.bot.session.add(group)
+        self.bot.session.add_all([santa, receiver, group])
         self.bot.session.commit()
-
-        link = Link(santa_id=santa.id, group_id=group.id)
+        link = Link(
+            santa_id=santa.id,
+            receiver_id=receiver.id if with_receiver else None,
+            group_id=group.id,
+        )
         self.bot.session.add(link)
         self.bot.session.commit()
+        return santa, receiver, group, link
 
+    def _delivery_update(self):
         update = MagicMock()
         update.effective_chat.id = 1
         update.effective_chat.title = "Test Group"
+        member = AsyncMock()
+        member.user.name = "Receiver"
+        update.effective_chat.get_member = AsyncMock(return_value=member)
+        return update
 
-        member_mock = AsyncMock()
-        member_mock.user.name = "Receiver"
-        update.effective_chat.get_member = AsyncMock(return_value=member_mock)
-
-        context = Mock()
+    async def test_deliver_pending_marks_notified(self):
+        santa, _receiver, _group, link = await self._setup_delivery()
+        update = self._delivery_update()
         gettext_mock = MagicMock(side_effect=lambda s: s)
 
         with patch.object(SantaBot, "send_message", new_callable=AsyncMock) as mock_send:
             with patch.object(SantaBot, "reply_message", new_callable=AsyncMock):
-                success = await SantaBot.set_and_send_individual_result(
-                    self.bot.session, update, context, santa.id, receiver.id, gettext_mock
-                )
+                await self.bot.deliver_pending(1, update, Mock(), gettext_mock)
 
-        self.assertTrue(success)
-        self.bot.session.commit()
         self.bot.session.refresh(link)
-        self.assertEqual(link.receiver_id, receiver.id)
+        self.assertIsNotNone(link.notified_at)
         mock_send.assert_called_once()
-        args, kwargs = mock_send.call_args
+        _args, kwargs = mock_send.call_args
         self.assertEqual(kwargs["chat_id"], santa.telegram_id)
         self.assertIn("Receiver", kwargs["text"])
 
-    async def test_set_and_send_individual_result_missing_participant(self):
-        update = MagicMock()
-        update.effective_chat.id = 1
-        update.effective_chat.get_member = AsyncMock()
-        context = Mock()
+    async def test_deliver_pending_continues_after_blocked_santa(self):
+        _santa, _receiver, group, link = await self._setup_delivery()
+        blocked = Participant(telegram_id=30, telegram_username="Blocker", address="North Pole")
+        victim = Participant(telegram_id=40, telegram_username="Victim", address="South Pole")
+        self.bot.session.add_all([blocked, victim])
+        self.bot.session.commit()
+        blocked_link = Link(santa_id=blocked.id, receiver_id=victim.id, group_id=group.id)
+        self.bot.session.add(blocked_link)
+        self.bot.session.commit()
+
+        update = self._delivery_update()
+        gettext_mock = MagicMock(side_effect=lambda s: s)
+
+        async def fake_send(context=None, chat_id=None, text=None, reply_markup=None):
+            if chat_id == 30:
+                raise Forbidden("Bot was blocked by the user")
+            return MagicMock()
+
+        with patch.object(SantaBot, "send_message", new_callable=AsyncMock, side_effect=fake_send):
+            with patch.object(SantaBot, "reply_message", new_callable=AsyncMock) as mock_reply:
+                await self.bot.deliver_pending(1, update, Mock(), gettext_mock)
+
+        self.bot.session.refresh(link)
+        self.bot.session.refresh(blocked_link)
+        self.assertIsNotNone(link.notified_at)
+        self.assertIsNone(blocked_link.notified_at)
+        self.assertIn("@Blocker", mock_reply.call_args.kwargs["text"])
+
+    async def test_deliver_pending_is_idempotent(self):
+        await self._setup_delivery()
+        update = self._delivery_update()
         gettext_mock = MagicMock(side_effect=lambda s: s)
 
         with patch.object(SantaBot, "send_message", new_callable=AsyncMock) as mock_send:
             with patch.object(SantaBot, "reply_message", new_callable=AsyncMock):
-                success = await SantaBot.set_and_send_individual_result(
-                    self.bot.session, update, context, 999, 888, gettext_mock
-                )
+                await self.bot.deliver_pending(1, update, Mock(), gettext_mock)
+                await self.bot.deliver_pending(1, update, Mock(), gettext_mock)
 
-        self.assertFalse(success)
-        mock_send.assert_not_called()
+        self.assertEqual(mock_send.call_count, 1)
 
-    async def test_set_and_send_individual_result_get_member_fails(self):
-        santa = Participant(telegram_id=10, telegram_username="Santa", address="North Pole")
-        receiver = Participant(telegram_id=20, telegram_username="Receiver", address="Somewhere")
-        self.bot.session.add(santa)
-        self.bot.session.add(receiver)
-        self.bot.session.commit()
+    async def test_send_individual_result_requires_receiver(self):
+        link = MagicMock()
+        link.santa = Participant(telegram_id=10)
+        link.receiver = None
 
-        group = Group(telegram_id=1)
-        self.bot.session.add(group)
-        self.bot.session.commit()
+        delivered, reason = await SantaBot.send_individual_result(link, self._delivery_update(), Mock(), MagicMock())
 
-        link = Link(santa_id=santa.id, group_id=group.id)
-        self.bot.session.add(link)
-        self.bot.session.commit()
+        self.assertFalse(delivered)
+        self.assertEqual(reason, "missing participant")
 
-        update = MagicMock()
-        update.effective_chat.id = 1
-        update.effective_chat.title = "Test Group"
-        update.effective_chat.get_member = AsyncMock(side_effect=Exception("User not found"))
+    async def test_send_individual_result_treats_bad_request_as_unreachable(self):
+        _santa, _receiver, _group, link = await self._setup_delivery()
 
-        context = Mock()
+        with patch.object(
+            SantaBot,
+            "send_message",
+            new_callable=AsyncMock,
+            side_effect=BadRequest("Chat not found"),
+        ):
+            delivered, reason = await SantaBot.send_individual_result(link, self._delivery_update(), Mock(), MagicMock())
+
+        self.assertFalse(delivered)
+        self.assertIn("Chat not found", reason)
+
+    def test_describe_participant_falls_back_to_telegram_id(self):
+        self.assertEqual(SantaBot.describe_participant(Participant(telegram_id=42)), "42")
+        self.assertEqual(
+            SantaBot.describe_participant(Participant(telegram_id=42, telegram_username="someone")),
+            "@someone",
+        )
+
+    async def test_pairing_persists_when_delivery_fails(self):
+        santa, receiver, _group, link = await self._setup_delivery(with_receiver=False)
+        update = self._make_update_mock(chat_type="group")
         gettext_mock = MagicMock(side_effect=lambda s: s)
 
-        with patch.object(SantaBot, "send_message", new_callable=AsyncMock) as mock_send:
-            with patch.object(SantaBot, "reply_message", new_callable=AsyncMock) as mock_reply:
-                success = await SantaBot.set_and_send_individual_result(
-                    self.bot.session, update, context, santa.id, receiver.id, gettext_mock
-                )
+        async def blocked_send(context=None, chat_id=None, text=None, reply_markup=None):
+            raise Forbidden("Bot was blocked by the user")
 
-        self.assertFalse(success)
+        with patch.object(SantaBot, "send_message", new_callable=AsyncMock, side_effect=blocked_send):
+            with patch.object(SantaBot, "reply_message", new_callable=AsyncMock) as mock_reply:
+                await self.bot.save_and_send_exchange_results({santa.id: receiver.id}, update, Mock(), gettext_mock)
+
+        self.bot.session.refresh(link)
+        self.assertEqual(link.receiver_id, receiver.id)
+        self.assertIsNotNone(link.assigned_at)
+        self.assertIsNone(link.notified_at)
+        self.assertIn("@Santa", mock_reply.call_args.kwargs["text"])
+
+    async def test_start_exchange_resumes_pending_delivery(self):
+        _santa, _receiver, _group, link = await self._setup_delivery()
+        update = self._make_update_mock(chat_type="group")
+        update.effective_chat.get_member = AsyncMock(return_value=self._member("Receiver"))
+
+        with patch.object(SantaBot, "checkUpdateAgeExpired", return_value=False):
+            with patch.object(SantaBot, "send_message", new_callable=AsyncMock) as mock_send:
+                with patch.object(SantaBot, "reply_message", new_callable=AsyncMock) as mock_reply:
+                    await self.bot.start_exchange(update, Mock())
+
+        self.bot.session.refresh(link)
+        self.assertIsNotNone(link.notified_at)
+        mock_send.assert_called_once()
+        replies = [call.kwargs.get("text") for call in mock_reply.call_args_list]
+        self.assertNotIn("The exchange has already been setup!", replies)
+
+    async def test_start_exchange_reports_already_set_up_once_delivered(self):
+        _santa, _receiver, _group, link = await self._setup_delivery()
+        self.bot.exchange.mark_delivered(link)
+        update = self._make_update_mock(chat_type="group")
+
+        with patch.object(SantaBot, "checkUpdateAgeExpired", return_value=False):
+            with patch.object(SantaBot, "send_message", new_callable=AsyncMock) as mock_send:
+                with patch.object(SantaBot, "reply_message", new_callable=AsyncMock) as mock_reply:
+                    await self.bot.start_exchange(update, Mock())
+
         mock_send.assert_not_called()
-        mock_reply.assert_called_once()
+        mock_reply.assert_called_once_with(update=update, text="The exchange has already been setup!")
+
+    async def test_reset_exchange_clears_delivery_state(self):
+        _santa, _receiver, _group, link = await self._setup_delivery()
+        self.bot.exchange.mark_delivered(link)
+        update = self._make_update_mock(chat_type="group")
+
+        with patch.object(SantaBot, "checkUpdateAgeExpired", return_value=False):
+            with patch.object(SantaBot, "reply_message", new_callable=AsyncMock):
+                await self.bot.reset_exchange(update, Mock())
+
+        self.bot.session.refresh(link)
+        self.assertIsNone(link.receiver_id)
+        self.assertIsNone(link.assigned_at)
+        self.assertIsNone(link.notified_at)
+        self.assertEqual(self.bot.exchange.pending_deliveries(1), [])
+
+    @staticmethod
+    def _member(name):
+        member = AsyncMock()
+        member.user.name = name
+        return member

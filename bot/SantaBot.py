@@ -10,9 +10,8 @@ from itertools import permutations
 from typing import Callable
 
 from sqlalchemy import or_
-from sqlalchemy.orm.session import Session
 from telegram import Chat, ForceReply, Update
-from telegram.error import BadRequest
+from telegram.error import BadRequest, Forbidden
 from telegram.ext import CommandHandler, ContextTypes, MessageHandler, filters
 
 from bot.models.BlockedLink import BlockedLink
@@ -523,8 +522,13 @@ class SantaBot:
                 await self.reply_message(update=update, text=message)
                 return
             if setup_block == "already_setup":
-                message = _("The exchange has already been setup!")
-                await self.reply_message(update=update, text=message)
+                # Assignment is durable; delivery may still be pending for
+                # participants who were unreachable on the first attempt.
+                if self.exchange.pending_deliveries(chat_id):
+                    await self.deliver_pending(chat_id, update, context, _)
+                else:
+                    message = _("The exchange has already been setup!")
+                    await self.reply_message(update=update, text=message)
                 return
 
             # Remove participants that are no longer in the chat
@@ -564,74 +568,63 @@ class SantaBot:
             logging.exception(this_ex)
 
     async def save_and_send_exchange_results(self, selected_combination, update, context, _):
-        for santa_id, receiver_id in selected_combination.items():
-            success = await self.set_and_send_individual_result(self.session, update, context, santa_id, receiver_id, _)
-            if not success:
-                self.session.rollback()
-                return
-        self.session.commit()
-        message = _("Messages have been sent!")
+        chat_id = update.effective_chat.id
+        # Persist the pairing before messaging anyone: an unreachable
+        # participant must not undo assignments that were already delivered.
+        self.exchange.assign_pairing(chat_id, selected_combination)
+        await self.deliver_pending(chat_id, update, context, _)
+
+    async def deliver_pending(self, chat_id, update, context, _):
+        """Send assignment messages for links that have not been notified yet."""
+        links = self.exchange.pending_deliveries(chat_id)
+        failures = []
+        for link in links:
+            delivered, reason = await self.send_individual_result(link, update, context, _)
+            if delivered:
+                self.exchange.mark_delivered(link)
+            else:
+                failures.append((link.santa, reason))
+                logging.warning(f"Undelivered exchange message for {SantaBot.describe_participant(link.santa)}: {reason}")
+
+        if not failures:
+            message = _("Messages have been sent!")
+            await self.reply_message(update=update, text=message)
+            return
+
+        names = ", ".join(SantaBot.describe_participant(participant) for participant, _reason in failures)
+        logging.warning(f"Exchange delivery incomplete, unreachable: {names}")
+        message = _("Could not message: {names}. Ask them to unblock the bot, then run {command} again.").format(
+            names=names,
+            command="/start_exchange",
+        )
         await self.reply_message(update=update, text=message)
 
     @staticmethod
-    async def set_and_send_individual_result(
-        db_session: Session,
-        update: Update,
-        context: ContextTypes.DEFAULT_TYPE,
-        santa_id: int,
-        receiver_id: int,
-        _,
-    ) -> bool:
-        success = False
-        telegram_chat = update.effective_chat
-        santa = None
-        receiver = None
-        try:
-            santa = db_session.query(Participant).get(santa_id)
-            receiver = db_session.query(Participant).get(receiver_id)
-
-            SantaBot.set_individual_result(db_session, telegram_chat, santa, receiver)
-
-            receiverUser = (await telegram_chat.get_member(user_id=int(receiver.telegram_id))).user
-
-            message = SantaBot.generate_result_message(telegram_chat, receiver, receiverUser.name, _)
-
-            await SantaBot.send_message(
-                context=context,
-                chat_id=santa.telegram_id,
-                text=message,
-            )
-
-            success = True
-
-        except Exception as this_ex:
-            exception_id = uuid.uuid4()
-            if santa and receiver:
-                logging.exception(
-                    f"Exception {exception_id}: {this_ex}. "
-                    f"Santa ID: {santa.id} "
-                    f"Santa Name: {santa.telegram_id} "
-                    f"Receiver ID: {receiver.id} "
-                    f"Receiver Name: {receiver.telegram_id}"
-                )
-            else:
-                logging.exception(f"Exception {exception_id}: {this_ex}.")
-
-            message = _("Error: {error}. Error ID: {id}").format(error=this_ex, id=exception_id)
-            await SantaBot.reply_message(update=update, text=message)
-
-        return success
+    def describe_participant(participant: Participant) -> str:
+        if participant.telegram_username:
+            return f"@{participant.telegram_username}"
+        return str(participant.telegram_id)
 
     @staticmethod
-    def set_individual_result(
-        db_session: Session,
-        telegram_chat: Chat,
-        santa: Participant,
-        receiver: Participant,
-    ):
-        santa_link = db_session.query(Link).join(Group).filter(Link.santa_id == santa.id, Group.telegram_id == telegram_chat.id).first()
-        santa_link.receiver_id = receiver.id
-        # Not saved until committed
+    async def send_individual_result(link, update, context, _) -> tuple[bool, str]:
+        telegram_chat = update.effective_chat
+        santa = link.santa
+        receiver = link.receiver
+        if santa is None or receiver is None:
+            return False, "missing participant"
+        try:
+            receiver_user = (await telegram_chat.get_member(user_id=int(receiver.telegram_id))).user
+            message = SantaBot.generate_result_message(telegram_chat, receiver, receiver_user.name, _)
+            await SantaBot.send_message(context=context, chat_id=santa.telegram_id, text=message)
+            return True, ""
+        except (Forbidden, BadRequest) as this_ex:
+            # Blocked bot, deactivated account, or privacy setting — the
+            # participant is unreachable, but the rest of the exchange is not.
+            return False, str(this_ex)
+        except Exception as this_ex:
+            exception_id = uuid.uuid4()
+            logging.exception(f"Exception {exception_id}: {this_ex} delivering to santa {santa.telegram_id}")
+            return False, f"{this_ex} ({exception_id})"
 
     @staticmethod
     def generate_result_message(telegram_chat: Chat, receiver: Participant, receiver_name: str, _) -> str:

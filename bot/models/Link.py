@@ -14,6 +14,7 @@ class Link(Base):
     group_id = Column(Integer, ForeignKey("groups.id"), index=True)
     created_at = Column(DateTime, server_default=func.now())
     assigned_at = Column(DateTime, nullable=True)
+    notified_at = Column(DateTime, nullable=True)
 
     santa = relationship("Participant", uselist=False, backref=backref("link_santa"), foreign_keys=santa_id)
     receiver = relationship("Participant", uselist=False, backref=backref("link_receiver"), foreign_keys=receiver_id)
