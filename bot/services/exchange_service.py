@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import logging
 import uuid
-from typing import Callable, Optional
+from typing import Callable
 
 from bot.models.Link import Link
 from bot.models.Participant import Participant
@@ -36,15 +35,13 @@ class ExchangeService:
 
     # ── Participant / address ──────────────────────────────────────────
 
-    def find_or_create_participant(
-        self, telegram_id: int, telegram_username: str
-    ) -> Participant:
+    def find_or_create_participant(self, telegram_id: int, telegram_username: str) -> Participant:
         p = self._participants.get_by_telegram_id(telegram_id)
         if p is None:
             p = self._participants.create(telegram_id, telegram_username)
         return p
 
-    def get_participant(self, telegram_id: int) -> Optional[Participant]:
+    def get_participant(self, telegram_id: int) -> Participant | None:
         return self._participants.get_by_telegram_id(telegram_id)
 
     def update_address(self, participant_id: int, address: str) -> None:
@@ -89,9 +86,7 @@ class ExchangeService:
     def block_by_username(self, blocker_id: int, username: str) -> str:
         target = self._participants.get_by_username(username)
         if target is None:
-            existing = self._blocked_links.find_by_blocker_and_username(
-                blocker_id, username
-            )
+            existing = self._blocked_links.find_by_blocker_and_username(blocker_id, username)
             if existing is not None:
                 return "already_blocked"
             self._blocked_links.create_by_username(blocker_id, username)
@@ -140,7 +135,7 @@ class ExchangeService:
             return "delivery_pending", list(group.links)
         return "finished", list(group.links)
 
-    def is_exchange_setup(self, chat_id: int) -> Optional[str]:
+    def is_exchange_setup(self, chat_id: int) -> str | None:
         """Returns None if exchange can proceed, or an error message key."""
         link = self._links.get_first_in_group(chat_id)
         if link is None:

@@ -207,7 +207,9 @@ class SantaBot:
 
             this_participant = self.exchange.get_participant(user_id)
             if this_participant is None:
-                message = _("Send me a {command} in a private message, then follow the instructions!").format(command="/start")  # noqa: E501
+                message = _("Send me a {command} in a private message, then follow the instructions!").format(
+                    command="/start"
+                )  # noqa: E501
                 await self.reply_message(update=update, text=message)
                 return
             else:
@@ -245,7 +247,8 @@ class SantaBot:
             original_text = update.effective_message.reply_to_message.text
 
             if (
-                original_user.id == self.bot_id and original_text == _("What is your address? (Reply to this message to change it)")  # noqa: E501
+                original_user.id == self.bot_id
+                and original_text == _("What is your address? (Reply to this message to change it)")  # noqa: E501
             ):
                 this_user = self.exchange.get_participant(update.effective_user.id)
                 if this_user is not None:
@@ -262,7 +265,7 @@ class SantaBot:
                     + _("A Telegram Secret Santa group only needs to be activated once.")
                     + "\n"  # noqa: E501
                     + _(
-                        "To do so, I must be a member of a telegram group and someone needs to activate me with the command {command}"
+                        "To do so, I must be a member of a telegram group and someone needs to activate me with the command {command}"  # noqa: E501
                     ).format(command="/hello")  # noqa: E501
                 )
                 await self.reply_message(update=update, text=message)
@@ -313,7 +316,9 @@ class SantaBot:
 
             this_participant = self.exchange.get_participant(user_id)
             if this_participant is None:
-                message = _("Send me a {command} in a private message, then follow the instructions!").format(command="/start")  # noqa: E501
+                message = _("Send me a {command} in a private message, then follow the instructions!").format(
+                    command="/start"
+                )  # noqa: E501
                 await self.reply_message(update=update, text=message)
                 return
 
@@ -459,13 +464,17 @@ class SantaBot:
             elif status_label == "delivery_pending":
                 pending = self.exchange.pending_deliveries(chat_id)
                 names = ", ".join(SantaBot.describe_participant(link.santa) for link in pending)
-                message = _("The exchange has finished, but {count} participant(s) were not messaged: {names}").format(
-                    count=len(pending),
-                    names=names,
-                ) + "\n\n"
-                message += _("Ask them to unblock the bot, then run {command} to resend.").format(
-                    command="/start_exchange"
-                ) + "\n\n"
+                message = (
+                    _("The exchange has finished, but {count} participant(s) were not messaged: {names}").format(
+                        count=len(pending),
+                        names=names,
+                    )
+                    + "\n\n"
+                )
+                message += (
+                    _("Ask them to unblock the bot, then run {command} to resend.").format(command="/start_exchange")
+                    + "\n\n"
+                )
             else:
                 message = _("The exchange has finished") + "\n\n"
 
@@ -594,7 +603,9 @@ class SantaBot:
                 self.exchange.mark_delivered(link)
             else:
                 failures.append((link.santa, reason))
-                logging.warning(f"Undelivered exchange message for {SantaBot.describe_participant(link.santa)}: {reason}")
+                logging.warning(
+                    f"Undelivered exchange message for {SantaBot.describe_participant(link.santa)}: {reason}"
+                )
 
         if not failures:
             message = _("Messages have been sent!")
@@ -721,7 +732,8 @@ class SantaBot:
     def preload_translations(self) -> dict[str, Callable[[str], str]]:
         """Load every supported message catalog once, keyed by locale directory."""
         translations = {
-            language.replace("-", "_"): self.load_translation(language.replace("-", "_")) for language in self.supported_languages
+            language.replace("-", "_"): self.load_translation(language.replace("-", "_"))
+            for language in self.supported_languages
         }
         fallback = translations.get("en") or (lambda message: message)
         translations["en"] = fallback

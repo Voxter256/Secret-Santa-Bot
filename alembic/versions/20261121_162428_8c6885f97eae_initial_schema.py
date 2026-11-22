@@ -5,11 +5,12 @@ Revises:
 Create Date: 2026-11-21 16:22:03.068417
 
 """
-from typing import Sequence, Union
 
-from alembic import op
+from collections.abc import Sequence
+from typing import Union
+
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "8c6885f97eae"
@@ -59,9 +60,7 @@ def upgrade() -> None:
         sa.Column("address", sa.String(1028), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
-    _create_index_if_not_exists(
-        "ix_participants_telegram_id", "participants", ["telegram_id"]
-    )
+    _create_index_if_not_exists("ix_participants_telegram_id", "participants", ["telegram_id"])
     _create_index_if_not_exists(
         "ix_participants_telegram_username",
         "participants",
@@ -100,9 +99,7 @@ def upgrade() -> None:
         "blocked_links",
         ["blocked_username"],
     )
-    _create_index_if_not_exists(
-        "ix_blocked_links_blocked_id", "blocked_links", ["blocked_id"]
-    )
+    _create_index_if_not_exists("ix_blocked_links_blocked_id", "blocked_links", ["blocked_id"])
 
     # --- wishlist_items ---
     _create_table_if_not_exists(

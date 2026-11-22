@@ -3,10 +3,9 @@
 import logging
 import pathlib
 
+from alembic import command
 from alembic.config import Config
 from sqlalchemy.engine import Connection
-
-from alembic import command
 
 ALEMBIC_INI = pathlib.Path(__file__).resolve().parent.parent / "alembic.ini"
 

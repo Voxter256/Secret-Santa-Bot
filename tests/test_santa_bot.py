@@ -70,7 +70,9 @@ class TestSantaBot(MigratedDatabaseTestCase):
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
     @patch.object(SantaBot, "is_update_expired")
-    async def test_start_exchange_no_group_links(self, mock_expired: MagicMock, mock_send: MagicMock, mock_reply: MagicMock):
+    async def test_start_exchange_no_group_links(
+        self, mock_expired: MagicMock, mock_send: MagicMock, mock_reply: MagicMock
+    ):
         mock_expired.return_value = False
         context = Mock()
         update = MagicMock()
@@ -184,9 +186,11 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
 
     # -- helpers --
 
-    def _make_update_mock(self, chat_id=1, user_id=10, username="TestUser",
-                          chat_type="group", language_code="en", message_date=None):
+    def _make_update_mock(
+        self, chat_id=1, user_id=10, username="TestUser", chat_type="group", language_code="en", message_date=None
+    ):
         import datetime
+
         update = MagicMock()
         update.effective_chat.id = chat_id
         update.effective_chat.type = chat_type
@@ -256,7 +260,9 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         update = self._make_update_mock()
         context = Mock()
         await self.bot.join(update, context)
-        mock_reply.assert_called_with(update=update, text="I need your address first! I am sending you a private message now.")
+        mock_reply.assert_called_with(
+            update=update, text="I need your address first! I am sending you a private message now."
+        )
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
@@ -342,10 +348,11 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         update.effective_message.parse_entities.return_value = {entity_mock: "@BlockedUser"}
         context = Mock()
         await self.bot.not_command(update, context)
-        blocked_link = self.bot.session.query(BlockedLink).filter(
-            BlockedLink.participant_id == p.id,
-            BlockedLink.blocked_username == "BlockedUser"
-        ).first()
+        blocked_link = (
+            self.bot.session.query(BlockedLink)
+            .filter(BlockedLink.participant_id == p.id, BlockedLink.blocked_username == "BlockedUser")
+            .first()
+        )
         self.assertIsNotNone(blocked_link)
 
     @patch.object(SantaBot, "reply_message")
@@ -363,15 +370,13 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         update.effective_message.parse_entities.return_value = {entity_mock: "UserB"}
         context = Mock()
         await self.bot.not_command(update, context)
-        blocked_link = self.bot.session.query(BlockedLink).filter(
-            BlockedLink.participant_id == p1.id,
-            BlockedLink.blocked_id == p2.id
-        ).first()
-        self.assertIsNotNone(blocked_link)
-        mock_reply.assert_called_with(
-            update=update,
-            text="OK, you can no longer matched with that participant."
+        blocked_link = (
+            self.bot.session.query(BlockedLink)
+            .filter(BlockedLink.participant_id == p1.id, BlockedLink.blocked_id == p2.id)
+            .first()
         )
+        self.assertIsNotNone(blocked_link)
+        mock_reply.assert_called_with(update=update, text="OK, you can no longer matched with that participant.")
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
@@ -407,15 +412,13 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         update.effective_message.parse_entities.return_value = {entity_mock: "@BlockedUser"}
         context = Mock()
         await self.bot.allow(update, context)
-        blocked_link = self.bot.session.query(BlockedLink).filter(
-            BlockedLink.participant_id == p.id,
-            BlockedLink.blocked_username == "BlockedUser"
-        ).first()
-        self.assertIsNone(blocked_link)
-        mock_reply.assert_called_with(
-            update=update,
-            text="You can now be assigned to @BlockedUser"
+        blocked_link = (
+            self.bot.session.query(BlockedLink)
+            .filter(BlockedLink.participant_id == p.id, BlockedLink.blocked_username == "BlockedUser")
+            .first()
         )
+        self.assertIsNone(blocked_link)
+        mock_reply.assert_called_with(update=update, text="You can now be assigned to @BlockedUser")
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
@@ -433,10 +436,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         update.effective_message.parse_entities.return_value = {entity_mock: "@BlockedUser"}
         context = Mock()
         await self.bot.allow(update, context)
-        mock_reply.assert_called_with(
-            update=update,
-            text="@BlockedUser was not blocked by you."
-        )
+        mock_reply.assert_called_with(update=update, text="@BlockedUser was not blocked by you.")
 
     # -- status handler tests --
 
@@ -627,7 +627,9 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
             new_callable=AsyncMock,
             side_effect=BadRequest("Chat not found"),
         ):
-            delivered, reason = await SantaBot.send_individual_result(link, self._delivery_update(), Mock(), MagicMock())
+            delivered, reason = await SantaBot.send_individual_result(
+                link, self._delivery_update(), Mock(), MagicMock()
+            )
 
         self.assertFalse(delivered)
         self.assertIn("Chat not found", reason)
@@ -771,7 +773,9 @@ class TestUpdateAgeLimit(MigratedDatabaseTestCase):
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "is_update_expired", return_value=True)
-    async def test_stale_update_never_reaches_handler_body(self, mock_expired: MagicMock, mock_reply: MagicMock) -> None:
+    async def test_stale_update_never_reaches_handler_body(
+        self, mock_expired: MagicMock, mock_reply: MagicMock
+    ) -> None:
         update = MagicMock()
         update.effective_chat.id = 1
         update.effective_chat.type = "private"

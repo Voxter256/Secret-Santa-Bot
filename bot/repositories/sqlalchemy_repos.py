@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import datetime
-from typing import Optional
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -18,22 +17,14 @@ class SqlParticipantRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def get_by_telegram_id(self, telegram_id: int) -> Optional[Participant]:
-        return (
-            self._session.query(Participant)
-            .filter(Participant.telegram_id == telegram_id)
-            .first()
-        )
+    def get_by_telegram_id(self, telegram_id: int) -> Participant | None:
+        return self._session.query(Participant).filter(Participant.telegram_id == telegram_id).first()
 
-    def get_by_id(self, participant_id: int) -> Optional[Participant]:
+    def get_by_id(self, participant_id: int) -> Participant | None:
         return self._session.query(Participant).get(participant_id)
 
-    def get_by_username(self, username: str) -> Optional[Participant]:
-        return (
-            self._session.query(Participant)
-            .filter(Participant.telegram_username == username)
-            .first()
-        )
+    def get_by_username(self, username: str) -> Participant | None:
+        return self._session.query(Participant).filter(Participant.telegram_username == username).first()
 
     def create(self, telegram_id: int, telegram_username: str) -> Participant:
         p = Participant(telegram_id=telegram_id, telegram_username=telegram_username)
@@ -54,12 +45,8 @@ class SqlGroupRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def get_by_telegram_id(self, chat_id: int) -> Optional[Group]:
-        return (
-            self._session.query(Group)
-            .filter(Group.telegram_id == chat_id)
-            .first()
-        )
+    def get_by_telegram_id(self, chat_id: int) -> Group | None:
+        return self._session.query(Group).filter(Group.telegram_id == chat_id).first()
 
     def create(self, telegram_id: int) -> Group:
         g = Group(telegram_id=telegram_id)
@@ -74,7 +61,7 @@ class SqlLinkRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def get_by_santa_and_group(self, santa_id: int, group_id: int) -> Optional[Link]:
+    def get_by_santa_and_group(self, santa_id: int, group_id: int) -> Link | None:
         return (
             self._session.query(Link)
             .join(Group)
@@ -82,21 +69,11 @@ class SqlLinkRepository:
             .first()
         )
 
-    def get_first_in_group(self, group_id: int) -> Optional[Link]:
-        return (
-            self._session.query(Link)
-            .join(Group)
-            .filter(Group.telegram_id == group_id)
-            .first()
-        )
+    def get_first_in_group(self, group_id: int) -> Link | None:
+        return self._session.query(Link).join(Group).filter(Group.telegram_id == group_id).first()
 
     def get_links_in_group(self, group_id: int) -> list[Link]:
-        return (
-            self._session.query(Link)
-            .join(Group)
-            .filter(Group.telegram_id == group_id)
-            .all()
-        )
+        return self._session.query(Link).join(Group).filter(Group.telegram_id == group_id).all()
 
     def create(self, santa_id: int, group_id: int) -> Link:
         link = Link(santa_id=santa_id, group_id=group_id)
@@ -154,9 +131,7 @@ class SqlBlockedLinkRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def find_by_blocker_and_username(
-        self, blocker_id: int, username: str
-    ) -> Optional[BlockedLink]:
+    def find_by_blocker_and_username(self, blocker_id: int, username: str) -> BlockedLink | None:
         return (
             self._session.query(BlockedLink)
             .filter(
@@ -166,7 +141,7 @@ class SqlBlockedLinkRepository:
             .first()
         )
 
-    def find_by_ids(self, id_list: list[int]) -> Optional[BlockedLink]:
+    def find_by_ids(self, id_list: list[int]) -> BlockedLink | None:
         return (
             self._session.query(BlockedLink)
             .filter(
@@ -176,9 +151,7 @@ class SqlBlockedLinkRepository:
             .first()
         )
 
-    def create_by_username(
-        self, participant_id: int, blocked_username: str
-    ) -> BlockedLink:
+    def create_by_username(self, participant_id: int, blocked_username: str) -> BlockedLink:
         bl = BlockedLink(participant_id=participant_id, blocked_username=blocked_username)
         self._session.add(bl)
         self._session.commit()
@@ -190,9 +163,7 @@ class SqlBlockedLinkRepository:
         self._session.commit()
         return bl
 
-    def find_for_allow(
-        self, participant_id: int, username: str, blocked_id: int
-    ) -> Optional[BlockedLink]:
+    def find_for_allow(self, participant_id: int, username: str, blocked_id: int) -> BlockedLink | None:
         return (
             self._session.query(BlockedLink)
             .join(BlockedLink.blocked, isouter=True)
@@ -210,21 +181,11 @@ class SqlBlockedLinkRepository:
         self._session.delete(blocked_link)
         self._session.commit()
 
-    def get_by_participant_ids(
-        self, participant_ids: list[int]
-    ) -> list[BlockedLink]:
-        return (
-            self._session.query(BlockedLink)
-            .filter(BlockedLink.participant_id.in_(participant_ids))
-            .all()
-        )
+    def get_by_participant_ids(self, participant_ids: list[int]) -> list[BlockedLink]:
+        return self._session.query(BlockedLink).filter(BlockedLink.participant_id.in_(participant_ids)).all()
 
     def resolve_pending_block(self, username: str, participant_id: int) -> None:
-        bl = (
-            self._session.query(BlockedLink)
-            .filter(BlockedLink.blocked_username == username)
-            .first()
-        )
+        bl = self._session.query(BlockedLink).filter(BlockedLink.blocked_username == username).first()
         if bl is not None:
             bl.blocked_id = participant_id
             bl.blocked_username = None

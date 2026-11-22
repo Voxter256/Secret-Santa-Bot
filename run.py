@@ -6,7 +6,6 @@ from bot.DBConnection import DBConnection
 from bot.LambdaSantaBot import LambdaSantaBot
 from bot.LocalSantaBot import LocalSantaBot
 
-
 if __name__ == "__main__":
     bot_database_file = "bot.sqlite"
     if not isfile(bot_database_file):

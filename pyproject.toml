@@ -20,13 +20,21 @@ dev = [
 
 [tool.ruff]
 target-version = "py39"
-line-length = 140
+line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "S"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101"]
+# alembic's env.py must mutate sys.path before importing the app models.
+"alembic/env.py" = ["E402"]
+
+[tool.ruff.lint.isort]
+# The local alembic/ migrations directory must not flip this classification
+# depending on the ruff version's src detection heuristics.
+known-first-party = ["bot"]
+known-third-party = ["alembic"]
 
 [tool.mypy]
 python_version = "3.13"

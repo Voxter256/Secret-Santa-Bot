@@ -68,10 +68,7 @@ class PairingEngine:
             participant_pairings.remove(random_receiver)
             possible = True
             new_remaining_participants = deepcopy(remaining_participants_copy)
-            remaining_pairings_list = [
-                remaining_participant[1]
-                for remaining_participant in new_remaining_participants
-            ]
+            remaining_pairings_list = [remaining_participant[1] for remaining_participant in new_remaining_participants]
             for remaining_pairings in remaining_pairings_list:
                 if len(remaining_pairings) == 1 and random_receiver in remaining_pairings:
                     possible = False
@@ -79,9 +76,7 @@ class PairingEngine:
                 remaining_pairings.discard(random_receiver)
             if not possible:
                 continue
-            success, final_pairings = PairingEngine.get_random_pairing(
-                new_remaining_participants, gifting
-            )
+            success, final_pairings = PairingEngine.get_random_pairing(new_remaining_participants, gifting)
             if success:
                 final_pairings[this_participant[0]] = random_receiver
                 return success, final_pairings
