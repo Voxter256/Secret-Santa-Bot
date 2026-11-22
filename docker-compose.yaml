@@ -8,3 +8,4 @@ services:
       TZ: "America/New_York"
       TELEGRAM_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN}"
       DATABASE_URL: "${DATABASE_URL:-sqlite:///bot.sqlite}"
+      MESSAGE_MAX_AGE_SECONDS: "${MESSAGE_MAX_AGE_SECONDS:-60}"

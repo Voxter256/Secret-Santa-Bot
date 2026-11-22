@@ -1,3 +1,5 @@
+import datetime
+import os
 import unittest
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
@@ -61,13 +63,13 @@ class TestSchemaFromMigrations(MigratedDatabaseTestCase):
 class TestSantaBot(MigratedDatabaseTestCase):
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
-    @patch.object(SantaBot, "checkUpdateAgeExpired")
+    @patch.object(SantaBot, "is_update_expired")
     async def test_start(self, mock_expired: MagicMock, mock_send: MagicMock, mock_reply: MagicMock):
         await self.private_chat_required(mock_expired, mock_reply)
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
-    @patch.object(SantaBot, "checkUpdateAgeExpired")
+    @patch.object(SantaBot, "is_update_expired")
     async def test_start_exchange_no_group_links(self, mock_expired: MagicMock, mock_send: MagicMock, mock_reply: MagicMock):
         mock_expired.return_value = False
         context = Mock()
@@ -222,7 +224,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
-    @patch.object(SantaBot, "checkUpdateAgeExpired")
+    @patch.object(SantaBot, "is_update_expired")
     async def test_join_private_chat_rejected(self, mock_expired, mock_send, mock_reply):
         mock_expired.return_value = False
         update = self._make_update_mock(chat_type="private")
@@ -232,7 +234,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
-    @patch.object(SantaBot, "checkUpdateAgeExpired")
+    @patch.object(SantaBot, "is_update_expired")
     async def test_join_no_start(self, mock_expired, mock_send, mock_reply):
         mock_expired.return_value = False
         update = self._make_update_mock()
@@ -245,7 +247,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
-    @patch.object(SantaBot, "checkUpdateAgeExpired")
+    @patch.object(SantaBot, "is_update_expired")
     async def test_join_no_address(self, mock_expired, mock_send, mock_reply):
         mock_expired.return_value = False
         p = Participant(telegram_id=10, telegram_username="TestUser", address=None)
@@ -258,7 +260,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
-    @patch.object(SantaBot, "checkUpdateAgeExpired")
+    @patch.object(SantaBot, "is_update_expired")
     async def test_join_no_group_hello(self, mock_expired, mock_send, mock_reply):
         mock_expired.return_value = False
         await self._setup_participant()
@@ -269,7 +271,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
-    @patch.object(SantaBot, "checkUpdateAgeExpired")
+    @patch.object(SantaBot, "is_update_expired")
     async def test_join_success(self, mock_expired, mock_send, mock_reply):
         mock_expired.return_value = False
         await self._setup_participant()
@@ -285,7 +287,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
-    @patch.object(SantaBot, "checkUpdateAgeExpired")
+    @patch.object(SantaBot, "is_update_expired")
     async def test_join_already_joined(self, mock_expired, mock_send, mock_reply):
         mock_expired.return_value = False
         p = await self._setup_participant()
@@ -300,7 +302,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
-    @patch.object(SantaBot, "checkUpdateAgeExpired")
+    @patch.object(SantaBot, "is_update_expired")
     async def test_leave_not_joined(self, mock_expired, mock_send, mock_reply):
         mock_expired.return_value = False
         await self._setup_participant()
@@ -312,7 +314,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
-    @patch.object(SantaBot, "checkUpdateAgeExpired")
+    @patch.object(SantaBot, "is_update_expired")
     async def test_leave_success(self, mock_expired, mock_send, mock_reply):
         mock_expired.return_value = False
         p = await self._setup_participant()
@@ -329,7 +331,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
-    @patch.object(SantaBot, "checkUpdateAgeExpired")
+    @patch.object(SantaBot, "is_update_expired")
     async def test_not_command_block_by_username(self, mock_expired, mock_send, mock_reply):
         mock_expired.return_value = False
         p = await self._setup_participant()
@@ -348,7 +350,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
-    @patch.object(SantaBot, "checkUpdateAgeExpired")
+    @patch.object(SantaBot, "is_update_expired")
     async def test_not_command_block_by_id(self, mock_expired, mock_send, mock_reply):
         mock_expired.return_value = False
         p1 = await self._setup_participant(user_id=10, username="UserA")
@@ -373,7 +375,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
-    @patch.object(SantaBot, "checkUpdateAgeExpired")
+    @patch.object(SantaBot, "is_update_expired")
     async def test_not_command_self_block(self, mock_expired, mock_send, mock_reply):
         mock_expired.return_value = False
         await self._setup_participant()
@@ -390,7 +392,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
-    @patch.object(SantaBot, "checkUpdateAgeExpired")
+    @patch.object(SantaBot, "is_update_expired")
     async def test_allow_remove_block_by_username(self, mock_expired, mock_send, mock_reply):
         mock_expired.return_value = False
         p = await self._setup_participant()
@@ -417,7 +419,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
-    @patch.object(SantaBot, "checkUpdateAgeExpired")
+    @patch.object(SantaBot, "is_update_expired")
     async def test_allow_not_blocked(self, mock_expired, mock_send, mock_reply):
         mock_expired.return_value = False
         await self._setup_participant()
@@ -440,7 +442,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
-    @patch.object(SantaBot, "checkUpdateAgeExpired")
+    @patch.object(SantaBot, "is_update_expired")
     async def test_status_private_chat_rejected(self, mock_expired, mock_send, mock_reply):
         mock_expired.return_value = False
         update = self._make_update_mock(chat_type="private")
@@ -450,7 +452,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
-    @patch.object(SantaBot, "checkUpdateAgeExpired")
+    @patch.object(SantaBot, "is_update_expired")
     async def test_status_no_group(self, mock_expired, mock_send, mock_reply):
         mock_expired.return_value = False
         update = self._make_update_mock()
@@ -460,7 +462,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
-    @patch.object(SantaBot, "checkUpdateAgeExpired")
+    @patch.object(SantaBot, "is_update_expired")
     async def test_status_exchange_not_begun(self, mock_expired, mock_send, mock_reply):
         mock_expired.return_value = False
         await self._setup_participant()
@@ -475,7 +477,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
-    @patch.object(SantaBot, "checkUpdateAgeExpired")
+    @patch.object(SantaBot, "is_update_expired")
     async def test_status_with_participants(self, mock_expired, mock_send, mock_reply):
         mock_expired.return_value = False
         p = await self._setup_participant()
@@ -494,7 +496,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
-    @patch.object(SantaBot, "checkUpdateAgeExpired")
+    @patch.object(SantaBot, "is_update_expired")
     async def test_status_reports_pending_deliveries(self, mock_expired, mock_send, mock_reply):
         mock_expired.return_value = False
         await self._setup_delivery()
@@ -510,7 +512,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
-    @patch.object(SantaBot, "checkUpdateAgeExpired")
+    @patch.object(SantaBot, "is_update_expired")
     async def test_status_reports_finished_after_delivery(self, mock_expired, mock_send, mock_reply):
         mock_expired.return_value = False
         _santa, _receiver, _group, link = await self._setup_delivery()
@@ -660,7 +662,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         update = self._make_update_mock(chat_type="group")
         update.effective_chat.get_member = AsyncMock(return_value=self._member("Receiver"))
 
-        with patch.object(SantaBot, "checkUpdateAgeExpired", return_value=False):
+        with patch.object(SantaBot, "is_update_expired", return_value=False):
             with patch.object(SantaBot, "send_message", new_callable=AsyncMock) as mock_send:
                 with patch.object(SantaBot, "reply_message", new_callable=AsyncMock) as mock_reply:
                     await self.bot.start_exchange(update, Mock())
@@ -676,7 +678,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         self.bot.exchange.mark_delivered(link)
         update = self._make_update_mock(chat_type="group")
 
-        with patch.object(SantaBot, "checkUpdateAgeExpired", return_value=False):
+        with patch.object(SantaBot, "is_update_expired", return_value=False):
             with patch.object(SantaBot, "send_message", new_callable=AsyncMock) as mock_send:
                 with patch.object(SantaBot, "reply_message", new_callable=AsyncMock) as mock_reply:
                     await self.bot.start_exchange(update, Mock())
@@ -689,7 +691,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         self.bot.exchange.mark_delivered(link)
         update = self._make_update_mock(chat_type="group")
 
-        with patch.object(SantaBot, "checkUpdateAgeExpired", return_value=False):
+        with patch.object(SantaBot, "is_update_expired", return_value=False):
             with patch.object(SantaBot, "reply_message", new_callable=AsyncMock):
                 await self.bot.reset_exchange(update, Mock())
 
@@ -723,3 +725,67 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         member = AsyncMock()
         member.user.name = name
         return member
+
+
+class TestUpdateAgeLimit(MigratedDatabaseTestCase):
+    """The stale-update guard must read its limit from config, not a magic 1 minute."""
+
+    def test_default_limit_is_sixty_seconds(self) -> None:
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("MESSAGE_MAX_AGE_SECONDS", None)
+            self.assertEqual(SantaBot.resolve_max_message_age_seconds(), 60)
+            self.assertEqual(self.bot.max_message_age_seconds, 60)
+
+    def test_env_var_overrides_default(self) -> None:
+        with patch.dict(os.environ, {"MESSAGE_MAX_AGE_SECONDS": "15"}):
+            self.assertEqual(SantaBot.resolve_max_message_age_seconds(), 15)
+            self.assertEqual(SantaBot(self.dbConnection).max_message_age_seconds, 15)
+
+    def test_constructor_argument_wins_over_env_var(self) -> None:
+        with patch.dict(os.environ, {"MESSAGE_MAX_AGE_SECONDS": "15"}):
+            self.assertEqual(SantaBot.resolve_max_message_age_seconds(5), 5)
+            self.assertEqual(SantaBot(self.dbConnection, max_message_age_seconds=5).max_message_age_seconds, 5)
+
+    def test_invalid_env_var_falls_back_to_default(self) -> None:
+        for raw in ("abc", "", "  ", "0", "-30"):
+            with self.subTest(raw=raw):
+                with patch.dict(os.environ, {"MESSAGE_MAX_AGE_SECONDS": raw}):
+                    self.assertEqual(SantaBot.resolve_max_message_age_seconds(), 60)
+
+    def test_update_within_limit_is_accepted(self) -> None:
+        self.bot.max_message_age_seconds = 120
+        update = MagicMock()
+        update.effective_message.date = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=30)
+        self.assertFalse(self.bot.is_update_expired(update))
+
+    def test_update_past_limit_is_rejected(self) -> None:
+        self.bot.max_message_age_seconds = 120
+        update = MagicMock()
+        update.effective_message.date = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=600)
+        self.assertTrue(self.bot.is_update_expired(update))
+
+    def test_unreadable_update_is_treated_as_expired(self) -> None:
+        broken = MagicMock()
+        broken.effective_message.date = None
+        self.assertTrue(self.bot.is_update_expired(broken))
+
+    @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "is_update_expired", return_value=True)
+    async def test_stale_update_never_reaches_handler_body(self, mock_expired: MagicMock, mock_reply: MagicMock) -> None:
+        update = MagicMock()
+        update.effective_chat.id = 1
+        update.effective_chat.type = "private"
+        update.effective_user.id = 1
+        await self.bot.start(update, Mock())
+        mock_expired.assert_called_once_with(update)
+        mock_reply.assert_not_called()
+
+    @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "is_update_expired", return_value=False)
+    async def test_fresh_update_reaches_handler_body(self, mock_expired: MagicMock, mock_reply: MagicMock) -> None:
+        update = MagicMock()
+        update.effective_chat.id = 1
+        update.effective_chat.type = "NotPrivate"
+        update.effective_user.id = 1
+        await self.bot.start(update, Mock())
+        mock_reply.assert_called_with(update=update, text="You must send me this in a private chat")

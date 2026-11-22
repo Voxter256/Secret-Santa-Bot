@@ -1,5 +1,6 @@
 import datetime
 import logging
+import os
 import pathlib
 import random
 import uuid
@@ -9,11 +10,11 @@ from gettext import find, translation
 from itertools import permutations
 from typing import Callable
 
-from sqlalchemy import or_
 from telegram import Chat, ForceReply, Update
 from telegram.error import BadRequest, Forbidden
 from telegram.ext import CommandHandler, ContextTypes, MessageHandler, filters
 
+from bot.decorators import rejects_stale_updates
 from bot.models.BlockedLink import BlockedLink
 from bot.models.Group import Group
 from bot.models.Link import Link
@@ -29,6 +30,10 @@ from bot.services.exchange_service import ExchangeService
 TRANSLATION_DOMAIN = "messages"
 LOCALE_DIR = pathlib.Path(__file__).parent / "locale"
 
+# Updates older than this are discarded; override with MESSAGE_MAX_AGE_SECONDS.
+DEFAULT_MAX_MESSAGE_AGE_SECONDS = 60
+MAX_MESSAGE_AGE_ENV_VAR = "MESSAGE_MAX_AGE_SECONDS"
+
 
 class SantaBot:
     supported_languages = [
@@ -40,7 +45,12 @@ class SantaBot:
         "ru",
     ]
 
-    def __init__(self, dbConnection, exchange: ExchangeService | None = None):
+    def __init__(
+        self,
+        dbConnection,
+        exchange: ExchangeService | None = None,
+        max_message_age_seconds: int | None = None,
+    ):
         # create dummy DB Models so backrefs work
         BlockedLink()
         Group()
@@ -51,6 +61,7 @@ class SantaBot:
 
         self.token = None
         self.bot_id = None
+        self.max_message_age_seconds = self.resolve_max_message_age_seconds(max_message_age_seconds)
 
         # Wire repositories and service; callers may inject their own service
         self.exchange = exchange or ExchangeService(
@@ -91,10 +102,9 @@ class SantaBot:
             sent_message = await update.effective_message.reply_text(text)
             logging.info(f"Sent Reply {text} with ID {sent_message.message_id} to Chat {update.effective_chat.id}")
 
+    @rejects_stale_updates
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            if self.checkUpdateAgeExpired(update):
-                return
             chat_type = update.effective_chat.type
             _ = self.gettext_translation(update.effective_user)
             if chat_type != "private":
@@ -141,9 +151,8 @@ class SantaBot:
         except Exception as this_ex:
             logging.exception(this_ex)
 
+    @rejects_stale_updates
     async def help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if self.checkUpdateAgeExpired(update):
-            return
         _ = self.gettext_translation(update.effective_user)
         message = (
             _("Command List:")
@@ -183,10 +192,9 @@ class SantaBot:
         )
         await self.reply_message(update=update, text=message)
 
+    @rejects_stale_updates
     async def show_address(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            if self.checkUpdateAgeExpired(update):
-                return
             logging.info(f"show_address | This Participant's Telegram ID: {update.effective_user.id}")
             chat_type = update.effective_chat.type
             _ = self.gettext_translation(update.effective_user)
@@ -223,10 +231,9 @@ class SantaBot:
         except Exception as this_ex:
             logging.exception(this_ex)
 
+    @rejects_stale_updates
     async def address(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            if self.checkUpdateAgeExpired(update):
-                return
             logging.info(
                 f"address | Telegram ID: {update.effective_user.id} "
                 f"Telegram Name: {update.effective_user.name} "
@@ -262,10 +269,9 @@ class SantaBot:
         except Exception as this_ex:
             logging.exception(this_ex)
 
+    @rejects_stale_updates
     async def hello(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            if self.checkUpdateAgeExpired(update):
-                return
             _ = self.gettext_translation(update.effective_user)
             chat_type = update.effective_chat.type
             if chat_type == "private":
@@ -286,10 +292,9 @@ class SantaBot:
         except Exception as this_ex:
             logging.exception(this_ex)
 
+    @rejects_stale_updates
     async def join(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            if self.checkUpdateAgeExpired(update):
-                return
             _ = self.gettext_translation(update.effective_user)
             chat_id = update.effective_chat.id
             user_id = update.effective_user.id
@@ -337,10 +342,9 @@ class SantaBot:
         except Exception as this_ex:
             logging.exception(this_ex)
 
+    @rejects_stale_updates
     async def not_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            if self.checkUpdateAgeExpired(update):
-                return
             logging.info(f"{update.effective_user.name}: not")
             _ = self.gettext_translation(update.effective_user)
             user_id = update.effective_user.id
@@ -378,10 +382,9 @@ class SantaBot:
         except Exception as this_ex:
             logging.exception(this_ex)
 
+    @rejects_stale_updates
     async def allow(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            if self.checkUpdateAgeExpired(update):
-                return
             _ = self.gettext_translation(update.effective_user)
 
             logging.info(f"allow | request: {update.effective_message.text}")
@@ -416,10 +419,9 @@ class SantaBot:
         except Exception as this_ex:
             logging.exception(this_ex)
 
+    @rejects_stale_updates
     async def leave(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            if self.checkUpdateAgeExpired(update):
-                return
             _ = self.gettext_translation(update.effective_user)
             p = self.exchange.get_participant(update.effective_user.id)
             if p is None:
@@ -431,10 +433,9 @@ class SantaBot:
         except Exception as this_ex:
             logging.exception(this_ex)
 
+    @rejects_stale_updates
     async def status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            if self.checkUpdateAgeExpired(update):
-                return
             _ = self.gettext_translation(update.effective_user)
             chat_id = update.effective_chat.id
             chat_type = update.effective_chat.type
@@ -519,10 +520,9 @@ class SantaBot:
         except Exception as this_ex:
             logging.exception(this_ex)
 
+    @rejects_stale_updates
     async def start_exchange(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            if self.checkUpdateAgeExpired(update):
-                return
             _ = self.gettext_translation(update.effective_user)
             chat_id = update.effective_chat.id
 
@@ -649,9 +649,8 @@ class SantaBot:
         message = f"{youGotUsername} {their_address_is}"
         return message
 
+    @rejects_stale_updates
     async def reset_exchange(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if self.checkUpdateAgeExpired(update):
-            return
         _ = self.gettext_translation(update.effective_user)
         self.exchange.reset_exchange(update.effective_chat.id)
         message = _("All pairings have been reset")
@@ -750,13 +749,30 @@ class SantaBot:
         return locality.replace("-", "_")
 
     @staticmethod
-    def checkUpdateAgeExpired(updateObject) -> bool:
+    def resolve_max_message_age_seconds(override: int | None = None) -> int:
+        """Return the update age limit in seconds: explicit override, env var, then default."""
+        if override is not None:
+            return override
+        raw = os.environ.get(MAX_MESSAGE_AGE_ENV_VAR, "").strip()
+        if not raw:
+            return DEFAULT_MAX_MESSAGE_AGE_SECONDS
+        try:
+            value = int(raw)
+        except ValueError:
+            logging.warning(f"Ignoring {MAX_MESSAGE_AGE_ENV_VAR}={raw!r}: not an integer")
+            return DEFAULT_MAX_MESSAGE_AGE_SECONDS
+        if value <= 0:
+            logging.warning(f"Ignoring {MAX_MESSAGE_AGE_ENV_VAR}={value}: must be positive")
+            return DEFAULT_MAX_MESSAGE_AGE_SECONDS
+        return value
+
+    def is_update_expired(self, updateObject) -> bool:
         try:
             message = updateObject.effective_message
             currentTime = datetime.datetime.now(datetime.timezone.utc)
             originalDate = message.date.replace(tzinfo=datetime.timezone.utc)
             messageAge = currentTime - originalDate
-            if messageAge > datetime.timedelta(minutes=1):
+            if messageAge > datetime.timedelta(seconds=self.max_message_age_seconds):
                 logging.warning(
                     f"Discarding Message sent at {originalDate.isoformat()} "
                     f"from user '{updateObject.effective_user}' "
