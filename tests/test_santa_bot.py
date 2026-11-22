@@ -1,4 +1,3 @@
-import datetime
 import unittest
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
@@ -667,6 +666,25 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         self.assertIsNone(link.assigned_at)
         self.assertIsNone(link.notified_at)
         self.assertEqual(self.bot.exchange.pending_deliveries(1), [])
+
+    def test_assign_pairing_skips_santas_without_link(self):
+        santa = Participant(telegram_id=10, telegram_username="Santa")
+        receiver = Participant(telegram_id=20, telegram_username="Receiver")
+        ghost = Participant(telegram_id=30, telegram_username="Ghost")
+        group = Group(telegram_id=1)
+        self.bot.session.add_all([santa, receiver, ghost, group])
+        self.bot.session.commit()
+        link = Link(santa_id=santa.id, group_id=group.id)
+        self.bot.session.add(link)
+        self.bot.session.commit()
+
+        # ghost is in the pairing but has no links row: must be skipped, not raised
+        self.bot.exchange.assign_pairing(1, {santa.id: receiver.id, ghost.id: receiver.id})
+
+        self.bot.session.refresh(link)
+        self.assertEqual(link.receiver_id, receiver.id)
+        self.assertIsNotNone(link.assigned_at)
+        self.assertIsNone(self.bot.session.query(Link).filter(Link.santa_id == ghost.id).first())
 
     @staticmethod
     def _member(name):

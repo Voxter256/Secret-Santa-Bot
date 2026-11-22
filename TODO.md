@@ -20,7 +20,7 @@
 - [x] Clear `receiver_id`, `assigned_at` and `notified_at` on `/reset_exchange`
 - [ ] `/status` must report pending deliveries instead of "The exchange has finished" — `get_exchange_status()` returns `finished` as soon as the first link has a receiver, regardless of `notified_at`
 - [ ] Add `.po` entries for the admin string `Could not message: {names}. …` — it currently renders in English for every locale
-- [ ] Test the `set_pairing()` skip branch — a santa id in the pairing with no `links` row
+- [x] Test the `set_pairing()` skip branch — `test_assign_pairing_skips_santas_without_link`: a santa id in the pairing with no `links` row is skipped without raising, while the existing link still gets its `receiver_id` and `assigned_at`
 
 ## Housekeeping
 
