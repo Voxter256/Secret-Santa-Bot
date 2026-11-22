@@ -2,13 +2,25 @@
 
 ## Migrations
 
-- [x] Bootstrap Alembic: 3 revisions matching current schema (`initial_schema`, `add_timestamps`, `add_exchange_events`)
+- [x] Bootstrap Alembic: 4 revisions matching current schema (`initial_schema`, `add_timestamps`, `add_exchange_events`, `add_link_notified_at`)
 - [x] Call `run_migrations()` from both entrypoints in `run.py` — `__main__` and `lambda_handler`
 - [x] Move `alembic` from the dev group to `[project].dependencies` — the image installs with `uv sync --no-dev`, so `bot._migrate` previously raised ImportError at startup
-- [x] Replace `DBConnection.createAll()` in `tests/test_santa_bot.py` with `run_migrations()` — tests now build their schema from the real migrations (per-test SQLite file), and `TestSchemaFromMigrations` asserts the table set plus the recorded head revision
+- [x] Replace `DBConnection.createAll()` in `tests/test_santa_bot.py` with `run_migrations()` — tests build their schema from the real migrations on a per-test in-memory SQLite database, and `TestSchemaFromMigrations` asserts the table set plus the recorded head revision
 - [x] Delete `DBConnection.createAll()` / `dropAll()` once tests no longer use them — removed with the now-unused `Base` import
-- [ ] Resolve `alembic.ini` by an absolute path anchored to the app root — `Config("alembic.ini")` in `bot/_migrate.py` is cwd-relative
-- [ ] Run migrations against MySQL — only SQLite has been executed (tests use `sqlite:///:memory:`, compose default is `sqlite:///bot.sqlite`)
+- [x] Resolve `alembic.ini` by an absolute path anchored to the app root — `bot/_migrate.py` now uses `ALEMBIC_INI = Path(__file__).parent.parent / "alembic.ini"`; verified by running migrations from `/tmp`
+- [x] Migrate through an existing connection for in-memory SQLite — `run_migrations(db_url, connection=...)`, `alembic/env.py` honours `config.attributes["connection"]`, `DBConnection` holds a `StaticPool` for `sqlite://`
+- [ ] Run migrations against MySQL — only SQLite has been executed (tests use `sqlite://` with a shared StaticPool connection, compose default is `sqlite:///bot.sqlite`)
+
+## Exchange delivery
+
+- [x] Persist the pairing before messaging anyone — `LinkRepository.set_pairing()` commits the whole pairing atomically, so a failed send no longer rolls back assignments that were already delivered
+- [x] Track per-link delivery with `links.notified_at` + migration `60e6fe52a838`
+- [x] Keep delivering past unreachable participants (`Forbidden` / `BadRequest`) and report them by `@username`
+- [x] Let `/start_exchange` resume only the undelivered links instead of replying "The exchange has already been setup!"
+- [x] Clear `receiver_id`, `assigned_at` and `notified_at` on `/reset_exchange`
+- [ ] `/status` must report pending deliveries instead of "The exchange has finished" — `get_exchange_status()` returns `finished` as soon as the first link has a receiver, regardless of `notified_at`
+- [ ] Add `.po` entries for the admin string `Could not message: {names}. …` — it currently renders in English for every locale
+- [ ] Test the `set_pairing()` skip branch — a santa id in the pairing with no `links` row
 
 ## Housekeeping
 
@@ -24,13 +36,16 @@
 
 - [x] Add unit tests for core pairing logic: `find_combination`, `get_random_pairing`
 - [x] Add tests for message handler flows: `join`, `leave`, `not`, `allow`, `status`
-- [x] Add tests for `set_and_send_individual_result`
+- [x] Add tests for the exchange delivery paths (10): marks `notified_at`, continues past a `Forbidden` santa, treats `BadRequest` as unreachable, second run sends nothing, missing receiver, pairing survives a failed delivery, `/start_exchange` resumes pending, already-delivered short-circuit, `/reset_exchange` clears state, username fallback
+- [x] Cover translation preloading and locale resolution (`tests/test_translations.py`, 3 tests) — catalogs load once at construction, de/ru/pt-BR resolve, unknown and `None` fall back to English
+- [x] Run the suite without `PYTHONPATH=/workspace` — `pythonpath = ["."]` in `[tool.pytest.ini_options]`; 78 tests collected
+- [ ] Fix the 24 mypy errors so the pre-commit mypy hook passes — `bot/SantaBot.py` 10, `bot/repositories/sqlalchemy_repos.py` 6, `bot/services/exchange_service.py` 8
 - [ ] Add integration test for the start → join → exchange flow
-- [ ] Run the suite without `PYTHONPATH=/workspace` — plain `uv run pytest` fails collection with `ModuleNotFoundError: No module named 'bot'` because the lock records the project as `source = { virtual = "." }` and it is not installed into the venv
 
 ## Build
 
 - [x] Verify Docker build works with updated Dockerfile (Python 3.13 + uv)
+- [x] Drop `--override-ini="python_files=Test*.py"` from the pre-commit pytest hook — after the test module rename it collected zero tests
 
 ## Future
 
