@@ -57,6 +57,8 @@ Runtime: `python-telegram-bot`, `SQLAlchemy`, `Alembic`, and `mysql-connector-py
 
 Catalogs live in `bot/locale/<lang>/LC_MESSAGES/`. Both the `.po` sources and the compiled `.mo` files are committed, so a string change needs the catalog recompiled with Babel before it takes effect.
 
+`bot/locale/README.md` has the exact `pybabel extract`/`update`/`compile` commands and their header caveats. Supported locales are de, en, pt-br, fr, it, and ru; the Portuguese directory is `pt_BR`, and anything unsupported or untranslated falls back to English.
+
 ### Logs
 
 `santabot.log` is written in the working directory and rotates weekly, keeping 52 files — about a year. Rotation is triggered by a write rather than a timer, so an idle bot keeps its last file. The active and rotated files are created `0600`.
