@@ -29,14 +29,29 @@ python-telegram-bot
 
 ###### All Users
 
+`/help`  
+Shows this list of commands.
+
 `/start`  
 Sent only in a private message to begin personal setup.
 
 `/hello`  
 Sent only in a group chat to enable the gift exchange.
 
+`/settings`  
+Sent only in a group chat by an admin to choose what this exchange requires.
+
+`/address`  
+Sent only in a private message to show and update your optional mailing address.
+
+`/wish`  
+Sent only in a private message to edit your wishlist for an exchange you have joined.
+
 `/join`  
 Joins you in the gift exchange in this chat.
+
+`/status`  
+Gets the status of this chat's exchange.
 
 `/not @Mention`  
 Prevents you from being paired up with this participant.
@@ -48,10 +63,28 @@ Removes block that was preventing you from being paired up with this participant
 You will leave the gift exchange in this chat.
 
 `/start_exchange`  
-Begins the gift exchange by assigning a recipient to every participant, then messaging them privately the details.
+Begins the gift exchange by assigning a recipient to every participant, then messaging them privately the details. When the wishlist is enabled and someone has no items, it names them and stops; `/start_exchange confirm` starts anyway.
 
 `/reset_exchange`  
 Resets the gift exchange by removing every participant's assigned recipient.
+
+## Exchange settings
+
+Both options are off by default and are toggled per group with `/settings`, by a group admin:
+
+- **Address required** — when on, the delivery message includes the recipient's mailing address. Groups that existed before this option was added were backfilled to on, so their behaviour did not change; new groups start with it off.
+- **Wishlist** — when on, participants can keep a wishlist for this exchange and the delivery message includes the recipient's items.
+
+Wishlists are scoped to a single exchange, so the same person can keep different lists for different groups. They are edited in a private chat with `/wish` and are never posted to the group by the bot. Limits: 1024 characters per item, 20 items, 3500 characters in total — the total is what keeps a list deliverable inside Telegram's 4096-character message limit.
+
+### Sharing a wishlist
+
+Wishlists can be shared through Telegram inline mode: type the bot's username in any chat and pick an exchange. Inline mode has to be enabled once in BotFather:
+
+    /setinline
+
+with a placeholder of `wishlist`. The same value can be set later with `setMySettings` and `inline_query_placeholder`. The share button in `/wish` pre-fills the query with that exchange, so the picker shows a single result.
+
 
 ## Contributors
 
