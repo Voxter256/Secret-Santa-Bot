@@ -147,6 +147,16 @@ class SqlLinkRepository:
     def get_first_in_group(self, group_id: int) -> Link | None:
         return self._session.query(Link).join(Group).filter(Group.telegram_id == group_id).first()
 
+    def get_groups_by_santa(self, santa_id: int) -> list[Group]:
+        """Every exchange this participant has joined, oldest first."""
+        return (
+            self._session.query(Group)
+            .join(Link, Link.group_id == Group.id)
+            .filter(Link.santa_id == santa_id)
+            .order_by(Group.id)
+            .all()
+        )
+
     def get_links_in_group(self, group_id: int) -> list[Link]:
         return self._session.query(Link).join(Group).filter(Group.telegram_id == group_id).all()
 

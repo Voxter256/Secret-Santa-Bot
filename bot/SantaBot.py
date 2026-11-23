@@ -10,9 +10,9 @@ from gettext import find, translation
 from itertools import permutations
 from typing import Callable
 
-from telegram import Chat, ForceReply, Update
+from telegram import Chat, ForceReply, InlineKeyboardButton, InlineKeyboardMarkup, LinkPreviewOptions, Update
 from telegram.error import BadRequest, Forbidden
-from telegram.ext import CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, filters
 
 from bot.decorators import rejects_stale_updates
 from bot.models.BlockedLink import BlockedLink
@@ -26,7 +26,7 @@ from bot.repositories.sqlalchemy_repos import (
     SqlParticipantRepository,
     SqlWishlistRepository,
 )
-from bot.services.exchange_service import ExchangeService
+from bot.services.exchange_service import MAX_ITEM_LENGTH, MAX_ITEMS, ExchangeService
 
 TRANSLATION_DOMAIN = "messages"
 LOCALE_DIR = pathlib.Path(__file__).parent / "locale"
@@ -81,6 +81,8 @@ class SantaBot:
             CommandHandler("help", self.help),
             CommandHandler("hello", self.hello),
             CommandHandler("address", self.show_address),
+            CommandHandler("wish", self.wish_command),
+            CommandHandler("settings", self.settings_command),
             CommandHandler("join", self.join),
             CommandHandler("not", self.not_command),
             CommandHandler("allow", self.allow),
@@ -88,13 +90,20 @@ class SantaBot:
             CommandHandler("status", self.status),
             CommandHandler("start_exchange", self.start_exchange),
             CommandHandler("reset_exchange", self.reset_exchange),
-            MessageHandler(filters.REPLY & filters.TEXT, self.address),
+            CallbackQueryHandler(self.wish_callback, pattern=r"^wish"),
+            CallbackQueryHandler(self.settings_callback, pattern=r"^cfg:"),
+            MessageHandler(filters.REPLY & filters.TEXT, self.pending_text),
         ]
 
     @staticmethod
-    async def send_message(context=None, chat_id=None, text=None, reply_markup=None):
+    async def send_message(context=None, chat_id=None, text=None, reply_markup=None, link_preview_options=None):
         if context:
-            sent_message = await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
+            sent_message = await context.bot.send_message(
+                chat_id=chat_id,
+                text=text,
+                reply_markup=reply_markup,
+                link_preview_options=link_preview_options,
+            )
             logging.info(f"Sent Message {text} with ID {sent_message.message_id} to Chat {chat_id}")
             return
 
@@ -258,6 +267,235 @@ class SantaBot:
         except Exception as this_ex:
             logging.exception(this_ex)
 
+    @staticmethod
+    def group_label(group) -> str:
+        """Human label for a group, falling back to its telegram id."""
+        if group is None:
+            return "?"
+        return group.title or str(group.telegram_id)
+
+    @rejects_stale_updates
+    async def pending_text(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Route a reply to whichever prompt is outstanding for this user."""
+        if context.user_data.get("wishlist_target") is not None:
+            await self.wishlist_input(update, context)
+        else:
+            await self.address(update, context)
+
+    @rejects_stale_updates
+    async def wish_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        try:
+            _ = self.gettext_translation(update.effective_user)
+            if update.effective_chat.type != "private":
+                await self.reply_message(update=update, text=_("You must send me this in a private chat"))
+                return
+
+            participant = self.exchange.get_participant(update.effective_user.id)
+            if participant is None:
+                message = _("Send me a {command} in a private message, then follow the instructions!").format(
+                    command="/start"
+                )  # noqa: E501
+                await self.reply_message(update=update, text=message)
+                return
+
+            groups = self.exchange.participant_groups(participant.id)
+            if not groups:
+                message = _(
+                    "You have not joined an exchange yet. Ask someone to run /hello in a group, then use /join there."
+                )  # noqa: E501
+                await self.reply_message(update=update, text=message)
+                return
+
+            if len(groups) == 1:
+                await self.show_wishlist(participant, groups[0].telegram_id, context, _)
+                return
+
+            keyboard = [
+                [InlineKeyboardButton(self.group_label(group), callback_data=f"wish:{group.telegram_id}")]
+                for group in groups
+            ]
+            await self.send_message(
+                context=context,
+                chat_id=participant.telegram_id,
+                text=_("Which exchange do you want to edit?"),
+                reply_markup=InlineKeyboardMarkup(keyboard),
+            )
+        except Exception as this_ex:
+            logging.exception(this_ex)
+
+    async def show_wishlist(self, participant, chat_id: int, context, _) -> None:
+        label = self.group_label(self.exchange.get_group(chat_id))
+        items = self.exchange.list_wishlist_items(participant.id, chat_id)
+        if items:
+            body = "\n".join(f"{position}. {item.details}" for position, item in enumerate(items, start=1))
+            text = _("Your wishlist for {group}:").format(group=label) + "\n" + body
+        else:
+            text = _("Your wishlist for {group} is empty.").format(group=label)
+        keyboard = [
+            [InlineKeyboardButton(_("Add an item"), callback_data=f"wishadd:{chat_id}")],
+            [
+                InlineKeyboardButton(_("Remove last"), callback_data=f"wishdel:{chat_id}"),
+                InlineKeyboardButton(_("Clear"), callback_data=f"wishclear:{chat_id}"),
+            ],
+        ]
+        await self.send_message(
+            context=context,
+            chat_id=participant.telegram_id,
+            text=text,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+        )
+
+    async def wish_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Callback handlers must not use rejects_stale_updates: the message
+        carrying the buttons is usually older than the age limit."""
+        try:
+            query = update.callback_query
+            await query.answer()
+            _ = self.gettext_translation(update.effective_user)
+            action, _separator, raw_chat_id = (query.data or "").partition(":")
+            try:
+                chat_id = int(raw_chat_id)
+            except ValueError:
+                return
+
+            participant = self.exchange.get_participant(update.effective_user.id)
+            if participant is None:
+                return
+
+            if action == "wish":
+                await self.show_wishlist(participant, chat_id, context, _)
+                return
+            if action == "wishadd":
+                context.user_data["wishlist_target"] = chat_id
+                await self.send_message(
+                    context=context,
+                    chat_id=participant.telegram_id,
+                    text=_("Send me the item to add. (Reply to this message.)"),
+                    reply_markup=ForceReply(),
+                )
+                return
+            if action == "wishdel":
+                items = self.exchange.list_wishlist_items(participant.id, chat_id)
+                if items:
+                    self.exchange.remove_wishlist_item(participant.id, chat_id, len(items))
+            elif action == "wishclear":
+                self.exchange.clear_wishlist(participant.id, chat_id)
+            await self.show_wishlist(participant, chat_id, context, _)
+        except Exception as this_ex:
+            logging.exception(this_ex)
+
+    async def wishlist_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        try:
+            _ = self.gettext_translation(update.effective_user)
+            reply_to = update.effective_message.reply_to_message
+            if reply_to is None or reply_to.from_user is None or reply_to.from_user.id != self.bot_id:
+                return
+
+            participant = self.exchange.get_participant(update.effective_user.id)
+            chat_id = context.user_data.get("wishlist_target")
+            if participant is None or chat_id is None:
+                return
+
+            result = self.exchange.add_wishlist_item(participant.id, chat_id, update.effective_message.text or "")
+            responses = {
+                "added": _("Added."),
+                "empty": _("That was empty. Send the item again."),
+                "too_long": _("That is too long. Keep each item under {limit} characters.").format(
+                    limit=MAX_ITEM_LENGTH
+                ),
+                "total_too_long": _("That would make your wishlist too long to send in one message."),
+                "full": _("Your wishlist is full at {limit} items.").format(limit=MAX_ITEMS),
+                "not_joined": _("You are not part of that exchange any more."),
+                "no_group": _("That exchange no longer exists."),
+            }
+            message = responses.get(result, _("That did not work. Try again."))
+            await self.reply_message(update=update, text=message)
+            if result == "added":
+                context.user_data.pop("wishlist_target", None)
+                await self.show_wishlist(participant, chat_id, context, _)
+        except Exception as this_ex:
+            logging.exception(this_ex)
+
+    @rejects_stale_updates
+    async def settings_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        try:
+            _ = self.gettext_translation(update.effective_user)
+            chat = update.effective_chat
+            if chat.type == "private":
+                await self.reply_message(update=update, text=_("You must begin from a group chat"))
+                return
+            if not await self.is_group_admin(context, chat.id, update.effective_user.id):
+                await self.reply_message(update=update, text=_("Only group admins can change exchange settings."))
+                return
+
+            group = self.exchange.find_or_create_group(chat.id)
+            if chat.title and not group.title:
+                self.exchange.set_group_title(chat.id, chat.title)
+            text, keyboard = self.settings_view(chat.id, _)
+            await self.send_message(context=context, chat_id=chat.id, text=text, reply_markup=keyboard)
+        except Exception as this_ex:
+            logging.exception(this_ex)
+
+    @staticmethod
+    async def is_group_admin(context, chat_id: int, user_id: int) -> bool:
+        """Telegram is the source of truth for admin status; fail closed."""
+        try:
+            member = await context.bot.get_chat_member(chat_id, user_id)
+        except BadRequest as this_ex:
+            logging.warning(f"get_chat_member failed for chat {chat_id}: {this_ex}")
+            return False
+        except Exception as this_ex:
+            logging.exception(this_ex)
+            return False
+        return member.status in ("administrator", "creator")
+
+    @staticmethod
+    def _state(value: bool, _) -> str:
+        return _("on") if value else _("off")
+
+    def settings_view(self, chat_id: int, _):
+        options = self.exchange.group_options(chat_id)
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    _("Address required: {state}").format(state=SantaBot._state(options["requires_address"], _)),
+                    callback_data=f"cfg:addr:{0 if options['requires_address'] else 1}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    _("Wishlist: {state}").format(state=SantaBot._state(options["wishlist_enabled"], _)),
+                    callback_data=f"cfg:wish:{0 if options['wishlist_enabled'] else 1}",
+                )
+            ],
+        ]
+        return _("Exchange settings for this group:"), InlineKeyboardMarkup(keyboard)
+
+    async def settings_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        try:
+            _ = self.gettext_translation(update.effective_user)
+            query = update.callback_query
+            chat_id = query.message.chat.id  # both Message and InaccessibleMessage expose .chat
+            if not await self.is_group_admin(context, chat_id, update.effective_user.id):
+                await query.answer(_("Only group admins can change exchange settings."), show_alert=True)
+                return
+            await query.answer()
+
+            parts = (query.data or "").split(":")
+            if len(parts) != 3:
+                return
+            _prefix, action, raw_value = parts
+            value = raw_value == "1"
+            if action == "addr":
+                self.exchange.set_group_option(chat_id, requires_address=value)
+            elif action == "wish":
+                self.exchange.set_group_option(chat_id, wishlist_enabled=value)
+
+            text, keyboard = self.settings_view(chat_id, _)
+            await query.edit_message_text(text=text, reply_markup=keyboard)
+        except Exception as this_ex:
+            logging.exception(this_ex)
+
     @rejects_stale_updates
     async def hello(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
@@ -269,6 +507,8 @@ class SantaBot:
                 return
 
             self.exchange.find_or_create_group(update.effective_chat.id)
+            if update.effective_chat.title:
+                self.exchange.set_group_title(update.effective_chat.id, update.effective_chat.title)
 
             message = (
                 _("Hello! ")
@@ -543,6 +783,18 @@ class SantaBot:
             group_participants = [x.id for x in temp_participants_list]
             logging.info(group_participants)
 
+            # Soft gate: nobody is blocked, but an admin is told who has no wishlist.
+            if self.exchange.group_options(chat_id)["wishlist_enabled"] and "confirm" not in (context.args or []):
+                group = self.exchange.get_group(chat_id)
+                missing = self.exchange.participants_without_wishlist(group.id, group_participants)
+                if missing:
+                    names = ", ".join(SantaBot.describe_participant(participant) for participant in missing)
+                    message = _(
+                        "These participants have no wishlist: {names}. Run /start_exchange confirm to start anyway."
+                    ).format(names=names)
+                    await self.reply_message(update=update, text=message)
+                    return
+
             blocked_links = self.exchange._blocked_links.get_by_participant_ids(group_participants)  # noqa: SLF001
             blocked_pairings = [[x.participant_id, x.blocked_id] for x in blocked_links]
 
@@ -609,14 +861,23 @@ class SantaBot:
         try:
             receiver_user = (await telegram_chat.get_member(user_id=int(receiver.telegram_id))).user
             options = self.exchange.group_options(telegram_chat.id)
+            wishlist = None
+            if options["wishlist_enabled"]:
+                wishlist = [item.details for item in self.exchange.list_wishlist_items(receiver.id, telegram_chat.id)]
             message = self.generate_result_message(
                 telegram_chat,
                 receiver,
                 receiver_user.name,
                 _,
                 requires_address=options["requires_address"],
+                wishlist=wishlist,
             )
-            await SantaBot.send_message(context=context, chat_id=santa.telegram_id, text=message)
+            await SantaBot.send_message(
+                context=context,
+                chat_id=santa.telegram_id,
+                text=message,
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
+            )
             return True, ""
         except (Forbidden, BadRequest) as this_ex:
             # Blocked bot, deactivated account, or privacy setting — the
@@ -635,6 +896,7 @@ class SantaBot:
         _,
         *,
         requires_address: bool,
+        wishlist: list[str] | None = None,
     ) -> str:
         chat_title = str(telegram_chat.title)
 
@@ -645,6 +907,10 @@ class SantaBot:
             receiver_address = receiver.address if receiver.address else "?"
             their_address_is = _("Their address is: {address}.").format(address=receiver_address)
             message = f"{message} {their_address_is}"
+
+        if wishlist:
+            body = "\n".join(f"- {item}" for item in wishlist)
+            message = f"{message}\n\n{_('Their wishlist:')}\n{body}"
         return message
 
     @rejects_stale_updates

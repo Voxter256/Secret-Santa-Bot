@@ -69,6 +69,10 @@ class ExchangeService:
     def get_group(self, chat_id: int):
         return self._groups.get_by_telegram_id(chat_id)
 
+    def participant_groups(self, participant_id: int):
+        """Groups this participant has joined, oldest first."""
+        return self._links.get_groups_by_santa(participant_id)
+
     def set_group_option(
         self,
         chat_id: int,
@@ -149,6 +153,11 @@ class ExchangeService:
         if group is None:
             return
         self._wishlists.clear(group.id, participant_id)
+
+    def participants_without_wishlist(self, group_id: int, participant_ids: list[int]) -> list[Participant]:
+        """Participants in this exchange with no wishlist items yet."""
+        missing = [pid for pid in participant_ids if self._wishlists.count_for(group_id, pid) == 0]
+        return [participant for participant in (self._participants.get_by_id(pid) for pid in missing) if participant]
 
     # ── Join / Leave ───────────────────────────────────────────────────
 

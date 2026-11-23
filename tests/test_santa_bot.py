@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from sqlalchemy import inspect, text
+from telegram import ForceReply
 from telegram.error import BadRequest, Forbidden
 
 from bot._migrate import run_migrations
@@ -731,7 +732,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         update = self._delivery_update()
         gettext_mock = MagicMock(side_effect=lambda s: s)
 
-        async def fake_send(context=None, chat_id=None, text=None, reply_markup=None):
+        async def fake_send(context=None, chat_id=None, text=None, reply_markup=None, link_preview_options=None):
             if chat_id == 30:
                 raise Forbidden("Bot was blocked by the user")
             return MagicMock()
@@ -815,7 +816,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         update = self._make_update_mock(chat_type="group")
         gettext_mock = MagicMock(side_effect=lambda s: s)
 
-        async def blocked_send(context=None, chat_id=None, text=None, reply_markup=None):
+        async def blocked_send(context=None, chat_id=None, text=None, reply_markup=None, link_preview_options=None):
             raise Forbidden("Bot was blocked by the user")
 
         with patch.object(SantaBot, "send_message", new_callable=AsyncMock, side_effect=blocked_send):
@@ -896,6 +897,212 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         member = AsyncMock()
         member.user.name = name
         return member
+
+    # -- wishlist and settings handlers --
+
+    def _make_callback_update(self, data, user_id=10, chat_id=1):
+        update = Mock()
+        update.effective_user.id = user_id
+        update.effective_user.language_code = "en"
+        query = AsyncMock()
+        query.data = data
+        query.message.chat.id = chat_id
+        update.callback_query = query
+        return update
+
+    @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "send_message")
+    @patch.object(SantaBot, "is_update_expired")
+    async def test_wish_command_rejects_group_chat(self, mock_expired, mock_send, mock_reply):
+        mock_expired.return_value = False
+        update = self._make_update_mock(chat_type="group")
+        await self.bot.wish_command(update, Mock(args=[]))
+        mock_reply.assert_called_with(update=update, text="You must send me this in a private chat")
+
+    @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "send_message")
+    @patch.object(SantaBot, "is_update_expired")
+    async def test_wish_command_without_joins(self, mock_expired, mock_send, mock_reply):
+        mock_expired.return_value = False
+        await self._setup_participant()
+        update = self._make_update_mock(chat_type="private")
+        await self.bot.wish_command(update, Mock(args=[]))
+        text = mock_reply.call_args.kwargs["text"]
+        self.assertIn("have not joined", text)
+
+    @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "send_message")
+    @patch.object(SantaBot, "is_update_expired")
+    async def test_wish_command_single_group_shows_list(self, mock_expired, mock_send, mock_reply):
+        mock_expired.return_value = False
+        participant = await self._setup_participant()
+        group = await self._setup_group(1)
+        group.title = "Office"
+        self.bot.session.commit()
+        await self._setup_link(participant.id, group.id)
+        update = self._make_update_mock(chat_type="private")
+        await self.bot.wish_command(update, Mock(args=[]))
+        text = mock_send.call_args.kwargs["text"]
+        self.assertIn("Office", text)
+        self.assertIn("empty", text)
+
+    @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "send_message")
+    @patch.object(SantaBot, "is_update_expired")
+    async def test_wish_command_multiple_groups_shows_picker(self, mock_expired, mock_send, mock_reply):
+        mock_expired.return_value = False
+        participant = await self._setup_participant()
+        for chat_id in (1, 2):
+            group = await self._setup_group(chat_id)
+            await self._setup_link(participant.id, group.id)
+        update = self._make_update_mock(chat_type="private")
+        await self.bot.wish_command(update, Mock(args=[]))
+        markup = mock_send.call_args.kwargs["reply_markup"]
+        buttons = [button for row in markup.inline_keyboard for button in row]
+        self.assertEqual(len(buttons), 2)
+        self.assertEqual({button.callback_data for button in buttons}, {"wish:1", "wish:2"})
+
+    async def test_wish_callback_add_prompts_for_item(self):
+        participant = await self._setup_participant()
+        group = await self._setup_group(1)
+        await self._setup_link(participant.id, group.id)
+        update = self._make_callback_update("wishadd:1")
+        context = Mock()
+        context.user_data = {}
+        with patch.object(SantaBot, "send_message", new_callable=AsyncMock) as mock_send:
+            await self.bot.wish_callback(update, context)
+        self.assertEqual(context.user_data["wishlist_target"], 1)
+        self.assertIsInstance(mock_send.call_args.kwargs["reply_markup"], ForceReply)
+
+    async def test_wishlist_input_adds_item(self):
+        participant = await self._setup_participant()
+        group = await self._setup_group(1)
+        await self._setup_link(participant.id, group.id)
+        self.bot.bot_id = 999
+        update = self._make_update_mock(chat_type="private")
+        update.effective_message.text = "a red scarf"
+        update.effective_message.reply_to_message = Mock()
+        update.effective_message.reply_to_message.from_user.id = 999
+        context = Mock()
+        context.user_data = {"wishlist_target": 1}
+        with (
+            patch.object(SantaBot, "reply_message", new_callable=AsyncMock) as mock_reply,
+            patch.object(SantaBot, "send_message", new_callable=AsyncMock),
+        ):
+            await self.bot.wishlist_input(update, context)
+        mock_reply.assert_called_with(update=update, text="Added.")
+        items = self.bot.exchange.list_wishlist_items(participant.id, 1)
+        self.assertEqual([item.details for item in items], ["a red scarf"])
+        self.assertNotIn("wishlist_target", context.user_data)
+
+    async def test_wishlist_input_ignores_reply_not_from_bot(self):
+        participant = await self._setup_participant()
+        group = await self._setup_group(1)
+        await self._setup_link(participant.id, group.id)
+        self.bot.bot_id = 999
+        update = self._make_update_mock(chat_type="private")
+        update.effective_message.text = "a red scarf"
+        update.effective_message.reply_to_message = Mock()
+        update.effective_message.reply_to_message.from_user.id = 12345
+        context = Mock()
+        context.user_data = {"wishlist_target": 1}
+        with (
+            patch.object(SantaBot, "reply_message", new_callable=AsyncMock),
+            patch.object(SantaBot, "send_message", new_callable=AsyncMock),
+        ):
+            await self.bot.wishlist_input(update, context)
+        self.assertEqual(self.bot.exchange.list_wishlist_items(participant.id, 1), [])
+
+    @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "is_update_expired")
+    async def test_settings_rejects_non_admin(self, mock_expired, mock_reply):
+        mock_expired.return_value = False
+        await self._setup_group(1)
+        update = self._make_update_mock(chat_id=1)
+        with patch.object(SantaBot, "is_group_admin", new_callable=AsyncMock, return_value=False):
+            await self.bot.settings_command(update, Mock(args=[]))
+        mock_reply.assert_called_with(update=update, text="Only group admins can change exchange settings.")
+
+    @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "send_message")
+    @patch.object(SantaBot, "is_update_expired")
+    async def test_settings_shows_toggles_for_admin(self, mock_expired, mock_send, mock_reply):
+        mock_expired.return_value = False
+        await self._setup_group(1)
+        update = self._make_update_mock(chat_id=1)
+        with patch.object(SantaBot, "is_group_admin", new_callable=AsyncMock, return_value=True):
+            await self.bot.settings_command(update, Mock(args=[]))
+        markup = mock_send.call_args.kwargs["reply_markup"]
+        callbacks = {button.callback_data for row in markup.inline_keyboard for button in row}
+        self.assertEqual(callbacks, {"cfg:addr:1", "cfg:wish:1"})
+
+    async def test_settings_callback_toggles_wishlist(self):
+        await self._setup_group(1)
+        update = self._make_callback_update("cfg:wish:1", chat_id=1)
+        with patch.object(SantaBot, "is_group_admin", new_callable=AsyncMock, return_value=True):
+            await self.bot.settings_callback(update, Mock())
+        self.assertTrue(self.bot.exchange.group_options(1)["wishlist_enabled"])
+        update.callback_query.edit_message_text.assert_awaited()
+
+    async def test_settings_callback_rejects_non_admin(self):
+        await self._setup_group(1)
+        update = self._make_callback_update("cfg:wish:1", chat_id=1)
+        with patch.object(SantaBot, "is_group_admin", new_callable=AsyncMock, return_value=False):
+            await self.bot.settings_callback(update, Mock())
+        self.assertFalse(self.bot.exchange.group_options(1)["wishlist_enabled"])
+        update.callback_query.edit_message_text.assert_not_awaited()
+
+    @patch.object(SantaBot, "reply_message")
+    async def test_start_exchange_warns_about_missing_wishlists(self, mock_reply):
+        santa = await self._setup_participant(10, "Santa")
+        other = await self._setup_participant(20, "Other")
+        group = await self._setup_group(1)
+        await self._setup_link(santa.id, group.id)
+        await self._setup_link(other.id, group.id)
+        self.bot.exchange.set_group_option(1, wishlist_enabled=True)
+        update = self._make_update_mock(chat_id=1)
+        update.effective_chat.get_member = AsyncMock(return_value=Mock())
+        await self.bot.start_exchange(update, Mock(args=[]))
+        text = mock_reply.call_args.kwargs["text"]
+        self.assertIn("no wishlist", text)
+        self.assertIn("@Santa", text)
+        link = self.bot.session.query(Link).first()
+        self.assertIsNone(link.receiver_id)
+
+    @patch.object(SantaBot, "reply_message")
+    async def test_start_exchange_confirm_bypasses_the_warning(self, mock_reply):
+        santa = await self._setup_participant(10, "Santa")
+        other = await self._setup_participant(20, "Other")
+        group = await self._setup_group(1)
+        await self._setup_link(santa.id, group.id)
+        await self._setup_link(other.id, group.id)
+        self.bot.exchange.set_group_option(1, wishlist_enabled=True)
+        update = self._make_update_mock(chat_id=1)
+        update.effective_chat.get_member = AsyncMock(return_value=Mock())
+        with patch.object(SantaBot, "send_message", new_callable=AsyncMock):
+            await self.bot.start_exchange(update, Mock(args=["confirm"]))
+        links = self.bot.session.query(Link).all()
+        self.assertTrue(all(link.receiver_id is not None for link in links))
+
+    async def test_delivery_includes_wishlist_when_enabled(self):
+        _santa, receiver, group, link = await self._setup_delivery()
+        await self._setup_link(receiver.id, group.id)
+        self.bot.exchange.set_group_option(1, wishlist_enabled=True)
+        self.assertEqual(self.bot.exchange.add_wishlist_item(receiver.id, 1, "a wizard hat"), "added")
+        with patch.object(SantaBot, "send_message", new_callable=AsyncMock) as mock_send:
+            delivered, _reason = await self.bot.send_individual_result(
+                link, self._delivery_update(), Mock(), lambda s: s
+            )
+        self.assertTrue(delivered)
+        self.assertIn("a wizard hat", mock_send.call_args.kwargs["text"])
+
+    async def test_delivery_omits_wishlist_when_disabled(self):
+        _santa, receiver, group, link = await self._setup_delivery()
+        await self._setup_link(receiver.id, group.id)
+        self.bot.exchange.add_wishlist_item(receiver.id, 1, "a wizard hat")
+        with patch.object(SantaBot, "send_message", new_callable=AsyncMock) as mock_send:
+            await self.bot.send_individual_result(link, self._delivery_update(), Mock(), lambda s: s)
+        self.assertNotIn("wizard hat", mock_send.call_args.kwargs["text"])
 
 
 class TestUpdateAgeLimit(MigratedDatabaseTestCase):

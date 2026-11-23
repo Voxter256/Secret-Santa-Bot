@@ -240,6 +240,12 @@ class TestExchangeService(unittest.TestCase):
         self.service.set_group_title(1, "Office Exchange")
         self.groups.set_title.assert_called_once_with(1, "Office Exchange")
 
+    def test_participant_groups_delegates(self):
+        groups = [MagicMock(id=1), MagicMock(id=2)]
+        self.links.get_groups_by_santa.return_value = groups
+        self.assertEqual(self.service.participant_groups(7), groups)
+        self.links.get_groups_by_santa.assert_called_once_with(7)
+
     # ── Wishlist ───────────────────────────────────────────────────────
 
     def _joined(self):
