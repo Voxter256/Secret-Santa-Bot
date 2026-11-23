@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 While the version is still `0.y.z`, anything may change at any time and breaking
 changes are called out but bump the minor version (SemVer §4).
 
+## [Unreleased]
+
+### Changed
+
+- Logging now records which command caused each line. A `TypeHandler` in group
+  `-1` tags the update before any command handler runs, so every line written
+  while it is handled carries the same `[u<update_id>]` correlation id, and one
+  `INFO` record names the command (`/join`, with any `@bot` suffix stripped) or
+  callback payload, plus the chat and user. Message bodies stay out of `INFO`.
+
 ## [0.2.0] - 2026-11-23
 
 This release is not a drop-in replacement for 0.1.0: the configuration file is

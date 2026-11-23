@@ -1,4 +1,5 @@
 import datetime
+import logging
 import os
 import unittest
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
@@ -11,6 +12,7 @@ from telegram.error import BadRequest, Forbidden
 
 from bot._migrate import run_migrations
 from bot.DBConnection import DBConnection
+from bot.log_context import CorrelationFilter
 from bot.models.BlockedLink import BlockedLink
 from bot.models.Feedback import Feedback
 from bot.models.Group import Group
@@ -952,6 +954,77 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         self.assertNotIn("wizard hat", joined)
         self.assertIn("Sent Message", joined)
         self.assertIn("chars", joined)
+
+    async def test_incoming_command_is_logged_with_a_correlation_id(self):
+        await self._setup_participant()
+        update = self._make_update_mock()
+        update.update_id = 4242
+        update.effective_message.text = "/join"
+        update.callback_query = None
+        with self.assertLogs(level="INFO") as captured:
+            await self.bot.observe_update(update, Mock())
+        line = "\n".join(captured.output)
+        self.assertIn("u4242", line)
+        self.assertIn("command /join", line)
+        self.assertIn("chat 1", line)
+        self.assertIn("user 10", line)
+
+    async def test_command_name_drops_the_bot_suffix(self):
+        message = Mock()
+        message.text = "/wish@SecretSantaBot"
+        self.assertEqual(SantaBot.command_name(message), "/wish")
+
+    async def test_command_name_ignores_plain_text(self):
+        message = Mock()
+        message.text = "123 Main Street, Springfield"
+        self.assertEqual(SantaBot.command_name(message), "")
+        self.assertEqual(SantaBot.command_name(None), "")
+
+    async def test_incoming_plain_text_logs_no_body(self):
+        await self._setup_participant()
+        update = self._make_update_mock()
+        update.update_id = 7
+        update.effective_message.text = "123 Main Street, Springfield"
+        update.callback_query = None
+        with self.assertLogs(level="INFO") as captured:
+            await self.bot.observe_update(update, Mock())
+        line = "\n".join(captured.output)
+        self.assertIn("command -", line)
+        self.assertNotIn("Springfield", line)
+
+    async def test_incoming_callback_query_logs_its_payload(self):
+        update = MagicMock()
+        update.update_id = 8
+        update.effective_message = None
+        update.effective_chat.id = 1
+        update.effective_chat.type = "private"
+        update.effective_user.id = 10
+        update.callback_query.data = "cfg:addr:1"
+        with self.assertLogs(level="INFO") as captured:
+            await self.bot.observe_update(update, Mock())
+        line = "\n".join(captured.output)
+        self.assertIn("command -", line)
+        self.assertIn("callback cfg:addr:1", line)
+
+    async def test_handler_lines_are_tagged_with_the_update_they_belong_to(self):
+        update = MagicMock()
+        update.update_id = 99
+        update.effective_message = None
+        update.effective_chat = None
+        update.effective_user = None
+        update.callback_query = None
+
+        formatter = logging.Formatter("[%(correlation_id)s] %(message)s")
+        filter_ = CorrelationFilter()
+        await self.bot.observe_update(update, Mock())
+        record = logging.LogRecord("bot", logging.INFO, __file__, 1, "later line", None, None)
+        filter_.filter(record)
+        self.assertEqual(formatter.format(record), "[u99] later line")
+
+    async def test_lines_outside_an_update_carry_a_placeholder(self):
+        record = logging.LogRecord("bot", logging.INFO, __file__, 1, "startup", None, None)
+        CorrelationFilter().filter(record)
+        self.assertEqual(record.correlation_id, "-")
 
     async def test_display_name_cannot_forge_a_log_line(self):
         await self._setup_participant()

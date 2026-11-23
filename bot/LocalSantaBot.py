@@ -4,6 +4,7 @@ import os
 
 from telegram.ext import Application
 
+from bot.log_context import CorrelationFilter
 from bot.SantaBot import SantaBot
 
 
@@ -51,9 +52,10 @@ class LocalSantaBot(SantaBot):
     def __init__(self, dbConnection):
         super().__init__(dbConnection)
 
-        formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+        formatter = logging.Formatter("%(asctime)s %(levelname)s [%(correlation_id)s] %(message)s")
         handler = build_log_handler()
         handler.setFormatter(formatter)
+        handler.addFilter(CorrelationFilter())
         logger = logging.getLogger()
         logger.setLevel(logging.INFO)
         logger.addHandler(handler)
@@ -66,6 +68,8 @@ class LocalSantaBot(SantaBot):
 
     def main(self):
         application = Application.builder().token(self.token).build()
+        for observer in self.update_middleware:
+            application.add_handler(observer, group=-1)
         for handler in self.handlers:
             application.add_handler(handler)
 

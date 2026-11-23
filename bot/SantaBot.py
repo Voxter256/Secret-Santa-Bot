@@ -29,10 +29,12 @@ from telegram.ext import (
     ContextTypes,
     InlineQueryHandler,
     MessageHandler,
+    TypeHandler,
     filters,
 )
 
 from bot.decorators import rejects_stale_updates
+from bot.log_context import begin_update
 from bot.models.BlockedLink import BlockedLink
 from bot.models.Group import Group
 from bot.models.Link import Link
@@ -103,6 +105,10 @@ class SantaBot:
         # Load every message catalog once instead of re-reading the .mo per update
         self.translations: dict[str, Callable[[str], str]] = self.preload_translations()
 
+        # Registered in group -1 by the concrete bots: it runs before any command
+        # handler, so everything logged for an update carries the same tag.
+        self.update_middleware = [TypeHandler(Update, self.observe_update)]
+
         self.handlers = [
             CommandHandler("start", self.start),
             CommandHandler("help", self.help),
@@ -154,6 +160,43 @@ class SantaBot:
                 len(text or ""),
             )
             logging.debug("Sent Reply body %r", text)
+
+    @staticmethod
+    def command_name(message) -> str:
+        """The bare command that triggered an update, e.g. ``/join`` for ``/join@bot``.
+
+        Read from the leading word rather than ``message.entities`` so it still
+        resolves when an update is replayed or built by a test.
+        """
+        text = (getattr(message, "text", None) or "").strip()
+        if not text.startswith("/"):
+            return ""
+        return text.split(maxsplit=1)[0].split("@", 1)[0]
+
+    async def observe_update(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Record which command arrived, and tag every line logged while it is handled.
+
+        Registered in group -1, so it runs before the command handler for the same
+        update: without it an INFO line names the chat but not the request that
+        caused it, and consecutive updates are indistinguishable in the log.
+        """
+        marker = begin_update(update)
+        message = update.effective_message
+        chat = update.effective_chat
+        user = update.effective_user
+        query = update.callback_query
+        command = self.command_name(message) or "-"
+        callback = getattr(query, "data", None) if query is not None else None
+        logging.info(
+            "Incoming %s | message id %s | chat %s (%s) | user %s | command %s | callback %s",
+            marker,
+            getattr(message, "message_id", None),
+            getattr(chat, "id", None),
+            getattr(chat, "type", None),
+            getattr(user, "id", None),
+            command,
+            callback if callback is not None else "-",
+        )
 
     @rejects_stale_updates
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):

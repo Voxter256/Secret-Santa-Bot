@@ -18,6 +18,8 @@ class LambdaSantaBot(SantaBot):
         self.bot = Bot(self.token)
         self.application = Application.builder().bot(self.bot).build()
 
+        for observer in self.update_middleware:
+            self.application.add_handler(observer, group=-1)
         for handler in self.handlers:
             self.application.add_handler(handler)
 
