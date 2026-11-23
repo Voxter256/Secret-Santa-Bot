@@ -2,10 +2,10 @@
 name = "secret-santa-telegram-bot"
 version = "0.1.0"
 description = "Telegram Secret Santa Exchange Bot"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "python-telegram-bot>=22.0",
-    "sqlalchemy>=2.0",
+    "sqlalchemy>=2.1",
     "mysql-connector-python>=8.0.21",
     "alembic>=1.16.5",
 ]
@@ -20,7 +20,7 @@ dev = [
 ]
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py311"
 line-length = 120
 
 [tool.ruff.lint]
