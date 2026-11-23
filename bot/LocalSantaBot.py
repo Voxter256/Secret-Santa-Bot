@@ -7,6 +7,30 @@ from telegram.ext import Application
 from bot.SantaBot import SantaBot
 
 
+class PrivateRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
+    """Rotating handler that keeps the log readable only by its owner.
+
+    ``FileHandler`` creates the file with the process umask (0644 on most systems),
+    and ``doRollover`` recreates the active file the same way, so the mode has to be
+    re-applied on every open rather than once at startup. A rotated file keeps the
+    inode it was renamed from, so it inherits whatever mode the active file had.
+    """
+
+    FILE_MODE = 0o600
+
+    def _open(self):
+        stream = super()._open()
+        self._restrict()
+        return stream
+
+    def _restrict(self) -> None:
+        try:
+            os.chmod(self.baseFilename, self.FILE_MODE)
+        except OSError as this_ex:
+            # Losing log privacy is worth a warning, not a crash.
+            logging.getLogger(__name__).warning(f"Could not restrict {self.baseFilename} to 0600: {this_ex}")
+
+
 def build_log_handler(filename: str = "santabot.log") -> logging.handlers.TimedRotatingFileHandler:
     """Weekly rotation, 52 files kept — about a year of history.
 
@@ -14,7 +38,7 @@ def build_log_handler(filename: str = "santabot.log") -> logging.handlers.TimedR
     bot keeps its last file until it next logs. 52 slots is therefore a
     count of files, not a strict 12-month cutoff.
     """
-    return logging.handlers.TimedRotatingFileHandler(
+    return PrivateRotatingFileHandler(
         filename,
         when="W0",
         interval=1,

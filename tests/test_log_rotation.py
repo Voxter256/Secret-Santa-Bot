@@ -25,6 +25,44 @@ class TestLogRotation(unittest.TestCase):
             self.assertEqual(handler.interval, datetime.timedelta(days=7).total_seconds())
             self.assertEqual(pathlib.Path(handler.baseFilename), path)
 
+    @staticmethod
+    def _record(message: str = "hello") -> logging.LogRecord:
+        return logging.LogRecord("test", logging.INFO, __file__, 1, message, None, None)
+
+    def test_log_file_is_created_owner_only(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = pathlib.Path(tmpdir) / "santabot.log"
+            handler = build_log_handler(str(path))
+            self.addCleanup(handler.close)
+
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+
+    def test_rotated_files_are_owner_only(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = pathlib.Path(tmpdir) / "santabot.log"
+            handler = build_log_handler(str(path))
+            self.addCleanup(handler.close)
+            handler.handle(self._record())
+
+            handler.doRollover()
+
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            rotated = [entry for entry in pathlib.Path(tmpdir).iterdir() if entry != path]
+            self.assertEqual(len(rotated), 1, rotated)
+            self.assertEqual(rotated[0].stat().st_mode & 0o777, 0o600)
+
+    def test_an_existing_world_readable_log_is_tightened(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = pathlib.Path(tmpdir) / "santabot.log"
+            path.write_text("2022-01-01 old entry\n", encoding="utf-8")
+            os.chmod(path, 0o644)
+
+            handler = build_log_handler(str(path))
+            self.addCleanup(handler.close)
+
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            self.assertIn("old entry", path.read_text(encoding="utf-8"))
+
     def test_local_bot_uses_the_rotating_handler(self) -> None:
         db = DBConnection("sqlite://")
         self.addCleanup(db.engine.dispose)
