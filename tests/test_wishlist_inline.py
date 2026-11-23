@@ -36,10 +36,12 @@ class TestInlineWishlists(unittest.IsolatedAsyncioTestCase):
         return group
 
     def _join_and_add(self, participant: Participant, group: Group, items: list[str]) -> None:
+        chat_id = group.telegram_id
+        assert chat_id is not None
         self.session.add(Link(santa_id=participant.id, group_id=group.id))
         self.session.commit()
         for item in items:
-            self.assertEqual(self.bot.exchange.add_wishlist_item(participant.id, group.telegram_id, item), "added")
+            self.assertEqual(self.bot.exchange.add_wishlist_item(participant.id, chat_id, item), "added")
 
     def _update(self, user_id: int = 10, query: str = "") -> Mock:
         update = Mock()

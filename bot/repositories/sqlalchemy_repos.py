@@ -28,7 +28,7 @@ class SqlParticipantRepository:
     def get_by_username(self, username: str) -> Participant | None:
         return self._session.scalars(select(Participant).where(Participant.telegram_username == username)).first()
 
-    def create(self, telegram_id: int, telegram_username: str) -> Participant:
+    def create(self, telegram_id: int, telegram_username: str | None) -> Participant:
         p = Participant(telegram_id=telegram_id, telegram_username=telegram_username)
         self._session.add(p)
         self._session.commit()

@@ -158,14 +158,19 @@ class SantaBot:
     @rejects_stale_updates
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            chat_type = update.effective_chat.type
-            _ = self.gettext_translation(update.effective_user)
+            chat = update.effective_chat
+            user = update.effective_user
+            if chat is None or user is None:
+                logging.warning("start | update has no chat or user")
+                return
+            chat_type = chat.type
+            _ = self.gettext_translation(user)
             if chat_type != "private":
                 message = _("You must send me this in a private chat")
                 await self.reply_message(update=update, text=message)
                 return
-            user_id = update.effective_user.id
-            user_username = update.effective_user.username
+            user_id = user.id
+            user_username = user.username
 
             this_participant = self.exchange.get_participant(user_id)
             address_hint = _("Use /address to share a mailing address, or /wish for wishlists.")  # noqa: E501
@@ -246,14 +251,20 @@ class SantaBot:
     @rejects_stale_updates
     async def show_address(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            logging.info(f"show_address | This Participant's Telegram ID: {update.effective_user.id}")
-            chat_type = update.effective_chat.type
-            _ = self.gettext_translation(update.effective_user)
+            user = update.effective_user
+            chat = update.effective_chat
+            user_data = context.user_data
+            if user is None or chat is None or user_data is None:
+                logging.warning("show_address | update has no chat or user")
+                return
+            logging.info(f"show_address | This Participant's Telegram ID: {user.id}")
+            chat_type = chat.type
+            _ = self.gettext_translation(user)
             if chat_type != "private":
                 message = _("You must send me this in a private chat")
                 await self.reply_message(update=update, text=message)
                 return
-            user_id = update.effective_user.id
+            user_id = user.id
             # user_username = update.effective_user.username
 
             this_participant = self.exchange.get_participant(user_id)
@@ -275,7 +286,7 @@ class SantaBot:
                     text=message,
                 )
                 message = _("What is your address? (Reply to this message to change it)")  # noqa: E501
-                context.user_data["awaiting_address"] = True
+                user_data["awaiting_address"] = True
                 await self.send_message(
                     context=context,
                     chat_id=this_participant.telegram_id,
@@ -288,25 +299,33 @@ class SantaBot:
     @rejects_stale_updates
     async def address(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
+            user = update.effective_user
+            incoming = update.effective_message
+            user_data = context.user_data
+            if user is None or incoming is None or incoming.text is None or user_data is None:
+                return
             logging.info(
                 "address | Telegram ID: %s | %s chars",
-                update.effective_user.id,
-                len(update.effective_message.text or ""),
+                user.id,
+                len(incoming.text),
             )
             logging.debug(
                 "address | Telegram Name: %r | Text: %r",
-                update.effective_user.name,
-                update.effective_message.text,
+                user.name,
+                incoming.text,
             )
-            _ = self.gettext_translation(update.effective_user)
-            new_address = update.effective_message.text
-            original_user = update.effective_message.reply_to_message.from_user
+            _ = self.gettext_translation(user)
+            new_address = incoming.text
+            reply_to = incoming.reply_to_message
+            if reply_to is None or reply_to.from_user is None:
+                return
+            original_user = reply_to.from_user
 
-            if original_user.id == self.bot_id and context.user_data.get("awaiting_address"):
-                this_user = self.exchange.get_participant(update.effective_user.id)
+            if original_user.id == self.bot_id and user_data.get("awaiting_address"):
+                this_user = self.exchange.get_participant(user.id)
                 if this_user is not None:
                     self.exchange.update_address(this_user.id, new_address)
-                    context.user_data.pop("awaiting_address", None)
+                    user_data.pop("awaiting_address", None)
 
                 message = (
                     _("OK, I have added your address as {address}.").format(address=new_address)
@@ -349,7 +368,10 @@ class SantaBot:
     @rejects_stale_updates
     async def pending_text(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Route a reply to whichever prompt is outstanding for this user."""
-        if context.user_data.get("wishlist_target") is not None:
+        user_data = context.user_data
+        if user_data is None:
+            return
+        if user_data.get("wishlist_target") is not None:
             await self.wishlist_input(update, context)
         else:
             await self.address(update, context)
@@ -378,9 +400,13 @@ class SantaBot:
     async def inline_wishlists(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """One result per exchange, so the picker answers "which wishlist?"."""
         try:
-            _ = self.gettext_translation(update.inline_query.from_user)
-            participant = self.exchange.get_participant(update.inline_query.from_user.id)
-            filter_text = (update.inline_query.query or "").strip().lower()
+            inline_query = update.inline_query
+            user = update.effective_user
+            if inline_query is None or user is None:
+                return
+            _ = self.gettext_translation(inline_query.from_user)
+            participant = self.exchange.get_participant(inline_query.from_user.id)
+            filter_text = (inline_query.query or "").strip().lower()
 
             results = []
             if participant is not None:
@@ -404,20 +430,24 @@ class SantaBot:
                         )
                     )
 
-            await update.inline_query.answer(results[:50], cache_time=0, is_personal=True)
+            await inline_query.answer(results[:50], cache_time=0, is_personal=True)
         except Exception as this_ex:
             logging.exception(this_ex)
 
     @rejects_stale_updates
     async def wish_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            logging.info(f"wish | Chat: {update.effective_chat.id} ({update.effective_chat.type})")
-            _ = self.gettext_translation(update.effective_user)
-            if update.effective_chat.type != "private":
+            chat = update.effective_chat
+            user = update.effective_user
+            if chat is None or user is None:
+                return
+            logging.info(f"wish | Chat: {chat.id} ({chat.type})")
+            _ = self.gettext_translation(user)
+            if chat.type != "private":
                 await self.reply_message(update=update, text=_("You must send me this in a private chat"))
                 return
 
-            participant = self.exchange.get_participant(update.effective_user.id)
+            participant = self.exchange.get_participant(user.id)
             if participant is None:
                 message = _("Send me a {command} in a private message, then follow the instructions!").format(
                     command="/start"
@@ -482,15 +512,19 @@ class SantaBot:
         carrying the buttons is usually older than the age limit."""
         try:
             query = update.callback_query
+            user = update.effective_user
+            user_data = context.user_data
+            if query is None or user is None or user_data is None:
+                return
             await query.answer()
-            _ = self.gettext_translation(update.effective_user)
+            _ = self.gettext_translation(user)
             action, _separator, raw_chat_id = (query.data or "").partition(":")
             try:
                 chat_id = int(raw_chat_id)
             except ValueError:
                 return
 
-            participant = self.exchange.get_participant(update.effective_user.id)
+            participant = self.exchange.get_participant(user.id)
             if participant is None:
                 return
 
@@ -498,7 +532,7 @@ class SantaBot:
                 await self.show_wishlist(participant, chat_id, context, _)
                 return
             if action == "wishadd":
-                context.user_data["wishlist_target"] = chat_id
+                user_data["wishlist_target"] = chat_id
                 await self.send_message(
                     context=context,
                     chat_id=participant.telegram_id,
@@ -518,17 +552,22 @@ class SantaBot:
 
     async def wishlist_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            _ = self.gettext_translation(update.effective_user)
-            reply_to = update.effective_message.reply_to_message
+            user = update.effective_user
+            incoming = update.effective_message
+            user_data = context.user_data
+            if user is None or incoming is None or user_data is None:
+                return
+            _ = self.gettext_translation(user)
+            reply_to = incoming.reply_to_message
             if reply_to is None or reply_to.from_user is None or reply_to.from_user.id != self.bot_id:
                 return
 
-            participant = self.exchange.get_participant(update.effective_user.id)
-            chat_id = context.user_data.get("wishlist_target")
+            participant = self.exchange.get_participant(user.id)
+            chat_id = user_data.get("wishlist_target")
             if participant is None or chat_id is None:
                 return
 
-            result = self.exchange.add_wishlist_item(participant.id, chat_id, update.effective_message.text or "")
+            result = self.exchange.add_wishlist_item(participant.id, chat_id, incoming.text or "")
             responses = {
                 "added": _("Added."),
                 "empty": _("That was empty. Send the item again."),
@@ -543,7 +582,7 @@ class SantaBot:
             message = responses.get(result, _("That did not work. Try again."))
             await self.reply_message(update=update, text=message)
             if result == "added":
-                context.user_data.pop("wishlist_target", None)
+                user_data.pop("wishlist_target", None)
                 await self.show_wishlist(participant, chat_id, context, _)
         except Exception as this_ex:
             logging.exception(this_ex)
@@ -551,13 +590,16 @@ class SantaBot:
     @rejects_stale_updates
     async def settings_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            logging.info(f"settings | Chat: {update.effective_chat.id} ({update.effective_chat.type})")
-            _ = self.gettext_translation(update.effective_user)
             chat = update.effective_chat
+            user = update.effective_user
+            if chat is None or user is None:
+                return
+            logging.info(f"settings | Chat: {chat.id} ({chat.type})")
+            _ = self.gettext_translation(user)
             if chat.type == "private":
                 await self.reply_message(update=update, text=_("You must begin from a group chat"))
                 return
-            if not await self.is_group_admin(context, chat.id, update.effective_user.id):
+            if not await self.is_group_admin(context, chat.id, user.id):
                 await self.reply_message(update=update, text=_("Only group admins can change exchange settings."))
                 return
 
@@ -607,10 +649,13 @@ class SantaBot:
 
     async def settings_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            _ = self.gettext_translation(update.effective_user)
             query = update.callback_query
+            user = update.effective_user
+            if query is None or user is None or query.message is None:
+                return
+            _ = self.gettext_translation(user)
             chat_id = query.message.chat.id  # both Message and InaccessibleMessage expose .chat
-            if not await self.is_group_admin(context, chat_id, update.effective_user.id):
+            if not await self.is_group_admin(context, chat_id, user.id):
                 await query.answer(_("Only group admins can change exchange settings."), show_alert=True)
                 return
             await query.answer()
@@ -633,16 +678,20 @@ class SantaBot:
     @rejects_stale_updates
     async def hello(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            _ = self.gettext_translation(update.effective_user)
-            chat_type = update.effective_chat.type
+            user = update.effective_user
+            chat = update.effective_chat
+            if user is None or chat is None:
+                return
+            _ = self.gettext_translation(user)
+            chat_type = chat.type
             if chat_type == "private":
                 message = _("You must begin from a group chat")
                 await self.reply_message(update=update, text=message)
                 return
 
-            self.exchange.find_or_create_group(update.effective_chat.id)
-            if update.effective_chat.title:
-                self.exchange.set_group_title(update.effective_chat.id, update.effective_chat.title)
+            self.exchange.find_or_create_group(chat.id)
+            if chat.title:
+                self.exchange.set_group_title(chat.id, chat.title)
 
             message = (
                 _("Hello! This group chat now has the options of participating in a Secret Santa Exchange!")
@@ -657,15 +706,19 @@ class SantaBot:
     @rejects_stale_updates
     async def join(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            _ = self.gettext_translation(update.effective_user)
-            chat_id = update.effective_chat.id
-            user_id = update.effective_user.id
-            user_username = update.effective_user.username
-            chat_type = update.effective_chat.type
+            chat = update.effective_chat
+            user = update.effective_user
+            if chat is None or user is None:
+                return
+            _ = self.gettext_translation(user)
+            chat_id = chat.id
+            user_id = user.id
+            user_username = user.username
+            chat_type = chat.type
             logging.info(f"Chat ID: {chat_id}")
             logging.info(f"User ID: {user_id}")
-            if update.effective_user.language_code:
-                logging.info(f"User Local: {update.effective_user.language_code}")
+            if user.language_code:
+                logging.info(f"User Local: {user.language_code}")
             logging.info(f"Type of Chat: {chat_type}")
 
             if chat_type == "private":
@@ -697,13 +750,17 @@ class SantaBot:
     @rejects_stale_updates
     async def not_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            logging.info("%r: not", update.effective_user.name)
-            _ = self.gettext_translation(update.effective_user)
-            user_id = update.effective_user.id
+            user = update.effective_user
+            incoming = update.effective_message
+            if user is None or incoming is None:
+                return
+            logging.info("%r: not", user.name)
+            _ = self.gettext_translation(user)
+            user_id = user.id
             p = self.exchange.get_participant(user_id)
             if p is None:
                 return
-            entities = update.effective_message.parse_entities()
+            entities = incoming.parse_entities()
             for entity, entity_text in entities.items():
                 entity_type = entity.type
                 logging.info(f"not | entity type: {entity_type}")
@@ -721,6 +778,8 @@ class SantaBot:
                         await self.reply_message(update=update, text=message)
                 elif entity_type == "text_mention":
                     mentioned_user = entity.user
+                    if mentioned_user is None:
+                        continue
                     result = self.exchange.block_by_user_id(p.id, mentioned_user.id)
                     if result == "needs_join_first":
                         message = _("This participant needs to join first")
@@ -737,13 +796,17 @@ class SantaBot:
     @rejects_stale_updates
     async def allow(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            _ = self.gettext_translation(update.effective_user)
+            user = update.effective_user
+            incoming = update.effective_message
+            if user is None or incoming is None:
+                return
+            _ = self.gettext_translation(user)
 
-            logging.info("allow | request: %r", update.effective_message.text)
-            p = self.exchange.get_participant(update.effective_user.id)
+            logging.info("allow | request: %r", incoming.text)
+            p = self.exchange.get_participant(user.id)
             if p is None:
                 return
-            entities = update.effective_message.parse_entities()
+            entities = incoming.parse_entities()
             for entity, entity_text in entities.items():
                 entity_type = entity.type
                 logging.info(f"allow | entity_type: {entity_type}")
@@ -761,6 +824,8 @@ class SantaBot:
                         await self.reply_message(update=update, text=message)
                 elif entity_type == "text_mention":
                     mentioned_user = entity.user
+                    if mentioned_user is None:
+                        continue
                     unblocked = self.exchange.unblock(p.id, "", mentioned_user.id)
                     if unblocked:
                         message = _("You can now be assigned to {name}").format(name=entity_text)
@@ -774,12 +839,16 @@ class SantaBot:
     @rejects_stale_updates
     async def leave(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            _ = self.gettext_translation(update.effective_user)
-            p = self.exchange.get_participant(update.effective_user.id)
+            user = update.effective_user
+            chat = update.effective_chat
+            if user is None or chat is None:
+                return
+            _ = self.gettext_translation(user)
+            p = self.exchange.get_participant(user.id)
             if p is None:
                 message = _("You never joined")
             else:
-                result = self.exchange.leave_group(p.id, update.effective_chat.id)
+                result = self.exchange.leave_group(p.id, chat.id)
                 message = _("Done.") if result == "left" else _("You never joined")
             await self.reply_message(update=update, text=message)
         except Exception as this_ex:
@@ -788,9 +857,13 @@ class SantaBot:
     @rejects_stale_updates
     async def status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            _ = self.gettext_translation(update.effective_user)
-            chat_id = update.effective_chat.id
-            chat_type = update.effective_chat.type
+            user = update.effective_user
+            chat = update.effective_chat
+            if user is None or chat is None:
+                return
+            _ = self.gettext_translation(user)
+            chat_id = chat.id
+            chat_type = chat.type
             logging.info(f"Status | Chat ID: {chat_id}")
             logging.info(f"Type of Chat: {chat_type}")
 
@@ -810,7 +883,9 @@ class SantaBot:
                 message = _("The exchange has not begun") + "\n\n"
             elif status_label == "delivery_pending":
                 pending = self.exchange.pending_deliveries(chat_id)
-                names = ", ".join(SantaBot.describe_participant(link.santa) for link in pending)
+                names = ", ".join(
+                    SantaBot.describe_participant(link.santa) for link in pending if link.santa is not None
+                )
                 message = (
                     _("The exchange has finished, but {count} participant(s) were not messaged: {names}").format(
                         count=len(pending),
@@ -828,7 +903,9 @@ class SantaBot:
             message += _("Joined Users:")
             for link in group_links:
                 this_participant = link.santa
-                chat_member = await update.effective_chat.get_member(user_id=this_participant.telegram_id)
+                if this_participant is None or this_participant.telegram_id is None:
+                    continue
+                chat_member = await chat.get_member(user_id=this_participant.telegram_id)
                 if not chat_member:
                     continue
                 message += f"\n{chat_member.user.name}\n"
@@ -838,8 +915,10 @@ class SantaBot:
                 blocked_links = this_participant.blocked_link
                 for blocked_link in blocked_links:
                     blocked_participant = blocked_link.blocker
+                    if blocked_participant is None or blocked_participant.telegram_id is None:
+                        continue
                     try:
-                        chat_member = await update.effective_chat.get_member(user_id=blocked_participant.telegram_id)
+                        chat_member = await chat.get_member(user_id=blocked_participant.telegram_id)
                         user_name = chat_member.user.name
                         blocked_participants.append(user_name)
                     except BadRequest as e:
@@ -851,16 +930,18 @@ class SantaBot:
                     blocked_participant_by_id = blocker_link.blocked
                     if blocked_participant_by_id:
                         telegram_id = blocked_participant_by_id.telegram_id
+                        if telegram_id is None:
+                            continue
                         try:
-                            chat_member = await update.effective_chat.get_member(user_id=telegram_id)
+                            chat_member = await chat.get_member(user_id=telegram_id)
                             user_name = chat_member.user.name
                             blocked_participants.append(user_name)
                         except BadRequest:
                             continue
                     else:
-                        user_name = blocker_link.blocked_username
-                        if user_name:
-                            blocked_participants.append(user_name)
+                        blocked_username = blocker_link.blocked_username
+                        if blocked_username:
+                            blocked_participants.append(blocked_username)
                 if blocked_participants:
                     message += _("Cannot pair with: {names}").format(names=", ".join(blocked_participants))
                     message += "\n"
@@ -872,8 +953,12 @@ class SantaBot:
     @rejects_stale_updates
     async def start_exchange(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            _ = self.gettext_translation(update.effective_user)
-            chat_id = update.effective_chat.id
+            user = update.effective_user
+            chat = update.effective_chat
+            if user is None or chat is None:
+                return
+            _ = self.gettext_translation(user)
+            chat_id = chat.id
 
             setup_block = self.exchange.is_exchange_setup(chat_id)
             if setup_block == "no_joins":
@@ -894,13 +979,16 @@ class SantaBot:
             links = self.exchange._links.get_links_in_group(chat_id)  # noqa: SLF001
             temp_participants_list = []
             for link in links:
+                santa = link.santa
+                if santa is None or santa.telegram_id is None:
+                    continue
                 try:
-                    await update.effective_chat.get_member(user_id=link.santa.telegram_id)
-                    temp_participants_list.append(link.santa)
+                    await chat.get_member(user_id=santa.telegram_id)
+                    temp_participants_list.append(santa)
                 except BadRequest:
                     logging.warning(
                         "Participant with telegram id "
-                        f"{link.santa.telegram_id} "
+                        f"{santa.telegram_id} "
                         "is no longer in chat "
                         f"with telegram id {chat_id}"
                     )
@@ -922,7 +1010,11 @@ class SantaBot:
                     return
 
             blocked_links = self.exchange._blocked_links.get_by_participant_ids(group_participants)  # noqa: SLF001
-            blocked_pairings = [[x.participant_id, x.blocked_id] for x in blocked_links]
+            blocked_pairings = [
+                [blocked.participant_id, blocked.blocked_id]
+                for blocked in blocked_links
+                if blocked.participant_id is not None and blocked.blocked_id is not None
+            ]
 
             success, selected_combination = self.exchange._pairing.find_combination(  # noqa: SLF001
                 group_participants, blocked_pairings
@@ -1041,8 +1133,12 @@ class SantaBot:
 
     @rejects_stale_updates
     async def reset_exchange(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        _ = self.gettext_translation(update.effective_user)
-        self.exchange.reset_exchange(update.effective_chat.id)
+        user = update.effective_user
+        chat = update.effective_chat
+        if user is None or chat is None:
+            return
+        _ = self.gettext_translation(user)
+        self.exchange.reset_exchange(chat.id)
         message = _("All pairings have been reset")
         await self.reply_message(update=update, text=message)
 
@@ -1233,7 +1329,11 @@ class SantaBot:
 
     @rejects_stale_updates
     async def feedback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        _ = self.gettext_translation(update.effective_user)
+        user = update.effective_user
+        chat = update.effective_chat
+        if user is None:
+            return
+        _ = self.gettext_translation(user)
         body = self.feedback_body(update)
         if not body:
             await self.reply_message(
@@ -1253,8 +1353,6 @@ class SantaBot:
             )
             return
 
-        user = update.effective_user
-        chat = update.effective_chat
         try:
             record = self.feedback_repo.add(user.id, user.username, chat.id if chat is not None else None, body)
         except Exception as this_ex:

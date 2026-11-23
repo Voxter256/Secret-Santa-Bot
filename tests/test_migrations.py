@@ -91,7 +91,11 @@ class TestLinkForeignKeyMigration(unittest.TestCase):
     def _index_names(self, table: str) -> set[str]:
         engine = create_engine(self.db_url)
         try:
-            return {ix["name"] for ix in inspect(engine).get_indexes(table)}
+            names: set[str] = set()
+            for index in inspect(engine).get_indexes(table):
+                if index["name"] is not None:
+                    names.add(index["name"])
+            return names
         finally:
             engine.dispose()
 

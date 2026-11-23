@@ -47,7 +47,7 @@ class ExchangeService:
 
     # ── Participant / address ──────────────────────────────────────────
 
-    def find_or_create_participant(self, telegram_id: int, telegram_username: str) -> Participant:
+    def find_or_create_participant(self, telegram_id: int, telegram_username: str | None) -> Participant:
         p = self._participants.get_by_telegram_id(telegram_id)
         if p is None:
             p = self._participants.create(telegram_id, telegram_username)
@@ -174,9 +174,10 @@ class ExchangeService:
 
     # ── Join / Leave ───────────────────────────────────────────────────
 
-    def join_group(self, participant_id: int, chat_id: int, username: str) -> str:
+    def join_group(self, participant_id: int, chat_id: int, username: str | None) -> str:
         # Resolve any pending block referencing this username
-        self._blocked_links.resolve_pending_block(username, participant_id)
+        if username is not None:
+            self._blocked_links.resolve_pending_block(username, participant_id)
 
         existing = self._links.get_by_santa_and_group(participant_id, chat_id)
         if existing is not None:
@@ -259,17 +260,23 @@ class ExchangeService:
         return None
 
     def run_exchange(self, chat_id: int) -> PairingResult:
-        participants = []
+        participants: list[int] = []
         # Collect all participant IDs in this group's exchange
         links = self._links.get_links_in_group(chat_id)
         for link in links:
-            participants.append(link.santa_id)
+            if link.santa_id is not None:
+                participants.append(link.santa_id)
 
         if len(participants) < 2:
             return False, {}
 
         blocked_links = self._blocked_links.get_by_participant_ids(participants)
-        blocked_pairings = [[bl.participant_id, bl.blocked_id] for bl in blocked_links]
+        # A pending block (username only, no resolved id) cannot constrain a pairing.
+        blocked_pairings = [
+            [bl.participant_id, bl.blocked_id]
+            for bl in blocked_links
+            if bl.participant_id is not None and bl.blocked_id is not None
+        ]
 
         return self._pairing.find_combination(participants, blocked_pairings)
 
