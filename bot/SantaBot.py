@@ -10,9 +10,25 @@ from gettext import find, translation
 from itertools import permutations
 from typing import Callable
 
-from telegram import Chat, ForceReply, InlineKeyboardButton, InlineKeyboardMarkup, LinkPreviewOptions, Update
+from telegram import (
+    Chat,
+    ForceReply,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    InlineQueryResultArticle,
+    InputTextMessageContent,
+    LinkPreviewOptions,
+    Update,
+)
 from telegram.error import BadRequest, Forbidden
-from telegram.ext import CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import (
+    CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    InlineQueryHandler,
+    MessageHandler,
+    filters,
+)
 
 from bot.decorators import rejects_stale_updates
 from bot.models.BlockedLink import BlockedLink
@@ -90,6 +106,7 @@ class SantaBot:
             CommandHandler("status", self.status),
             CommandHandler("start_exchange", self.start_exchange),
             CommandHandler("reset_exchange", self.reset_exchange),
+            InlineQueryHandler(self.inline_wishlists),
             CallbackQueryHandler(self.wish_callback, pattern=r"^wish"),
             CallbackQueryHandler(self.settings_callback, pattern=r"^cfg:"),
             MessageHandler(filters.REPLY & filters.TEXT, self.pending_text),
@@ -282,6 +299,39 @@ class SantaBot:
         else:
             await self.address(update, context)
 
+    async def inline_wishlists(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """One result per exchange, so the picker answers "which wishlist?"."""
+        try:
+            _ = self.gettext_translation(update.inline_query.from_user)
+            participant = self.exchange.get_participant(update.inline_query.from_user.id)
+            filter_text = (update.inline_query.query or "").strip().lower()
+
+            results = []
+            if participant is not None:
+                for group in self.exchange.participant_groups(participant.id):
+                    items = self.exchange.list_wishlist_items(participant.id, group.telegram_id)
+                    if not items:
+                        continue
+                    label = self.group_label(group)
+                    if filter_text and filter_text not in str(group.telegram_id) and filter_text not in label.lower():
+                        continue
+                    body = "\n".join(f"- {item.details}" for item in items)
+                    results.append(
+                        InlineQueryResultArticle(
+                            id=f"wish-{group.telegram_id}",
+                            title=label,
+                            description=" · ".join(item.details for item in items)[:120],
+                            input_message_content=InputTextMessageContent(
+                                message_text=f"{label}\n{_('Wishlist:')}\n{body}",
+                                link_preview_options=LinkPreviewOptions(is_disabled=True),
+                            ),
+                        )
+                    )
+
+            await update.inline_query.answer(results[:50], cache_time=0, is_personal=True)
+        except Exception as this_ex:
+            logging.exception(this_ex)
+
     @rejects_stale_updates
     async def wish_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
@@ -337,6 +387,7 @@ class SantaBot:
                 InlineKeyboardButton(_("Remove last"), callback_data=f"wishdel:{chat_id}"),
                 InlineKeyboardButton(_("Clear"), callback_data=f"wishclear:{chat_id}"),
             ],
+            [InlineKeyboardButton(_("Share this list"), switch_inline_query_current_chat=str(chat_id))],
         ]
         await self.send_message(
             context=context,

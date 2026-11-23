@@ -949,6 +949,22 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
     @patch.object(SantaBot, "is_update_expired")
+    async def test_wish_view_offers_share_button(self, mock_expired, mock_send, mock_reply):
+        mock_expired.return_value = False
+        participant = await self._setup_participant()
+        group = await self._setup_group(1)
+        await self._setup_link(participant.id, group.id)
+        update = self._make_update_mock(chat_type="private")
+        await self.bot.wish_command(update, Mock(args=[]))
+        markup = mock_send.call_args.kwargs["reply_markup"]
+        buttons = [button for row in markup.inline_keyboard for button in row]
+        share = [button for button in buttons if button.switch_inline_query_current_chat is not None]
+        self.assertEqual(len(share), 1)
+        self.assertEqual(share[0].switch_inline_query_current_chat, "1")
+
+    @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "send_message")
+    @patch.object(SantaBot, "is_update_expired")
     async def test_wish_command_multiple_groups_shows_picker(self, mock_expired, mock_send, mock_reply):
         mock_expired.return_value = False
         participant = await self._setup_participant()
