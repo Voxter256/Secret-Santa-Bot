@@ -1,6 +1,0 @@
-# Core dependencies — managed via pyproject.toml + uv.lock
-# Run `uv sync` to install from the lockfile.
-# Run `uv add <package>` to add new deps.
-python-telegram-bot>=22.0
-sqlalchemy>=2.0
-mysql-connector-python>=8.0.21
