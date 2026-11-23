@@ -1,6 +1,6 @@
 [project]
 name = "secret-santa-telegram-bot"
-version = "0.2.0"
+version = "0.3.0"
 description = "Telegram Secret Santa Exchange Bot"
 requires-python = ">=3.11"
 dependencies = [
