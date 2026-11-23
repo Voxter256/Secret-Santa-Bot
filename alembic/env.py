@@ -23,13 +23,10 @@ if config.config_file_name is not None:
 # add your model's MetaData object here
 # for 'autogenerate' support
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+# Importing the package registers every model's table on Base.metadata;
+# without it autogenerate sees an empty schema and proposes dropping tables.
+import bot.models  # noqa: F401
 from bot.Base import Base
-from bot.models.Participant import Participant  # noqa: F401
-from bot.models.Group import Group  # noqa: F401
-from bot.models.Link import Link  # noqa: F401
-from bot.models.BlockedLink import BlockedLink  # noqa: F401
-from bot.models.ExchangeEvent import ExchangeEvent  # noqa: F401
-from bot.models.WishlistItem import WishlistItem  # noqa: F401
 
 target_metadata = Base.metadata
 
