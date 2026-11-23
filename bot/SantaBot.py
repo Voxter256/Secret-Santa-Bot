@@ -309,8 +309,7 @@ class SantaBot:
                     context.user_data.pop("awaiting_address", None)
 
                 message = (
-                    _("OK, I have added your address as: ")
-                    + new_address
+                    _("OK, I have added your address as {address}.").format(address=new_address)
                     + "\n"
                     + _("You can now to use {command} in any Telegram Secret Santa group!").format(  # noqa: E501
                         command="/join"
@@ -584,21 +583,22 @@ class SantaBot:
         return member.status in ("administrator", "creator")
 
     @staticmethod
-    def _state(value: bool, _) -> str:
-        return _("on") if value else _("off")
+    def _state(value: bool) -> str:
+        """Symbols, not words: a bare "on"/"off" is ambiguous and costs two msgids."""
+        return "✓" if value else "✗"
 
     def settings_view(self, chat_id: int, _):
         options = self.exchange.group_options(chat_id)
         keyboard = [
             [
                 InlineKeyboardButton(
-                    _("Address required: {state}").format(state=SantaBot._state(options["requires_address"], _)),
+                    _("Address required: {state}").format(state=SantaBot._state(options["requires_address"])),
                     callback_data=f"cfg:addr:{0 if options['requires_address'] else 1}",
                 )
             ],
             [
                 InlineKeyboardButton(
-                    _("Wishlist: {state}").format(state=SantaBot._state(options["wishlist_enabled"], _)),
+                    _("Wishlist: {state}").format(state=SantaBot._state(options["wishlist_enabled"])),
                     callback_data=f"cfg:wish:{0 if options['wishlist_enabled'] else 1}",
                 )
             ],
@@ -645,8 +645,7 @@ class SantaBot:
                 self.exchange.set_group_title(update.effective_chat.id, update.effective_chat.title)
 
             message = (
-                _("Hello! ")
-                + _("This group chat now has the options of participating in a Secret Santa Exchange!")
+                _("Hello! This group chat now has the options of participating in a Secret Santa Exchange!")
                 + "\n"  # noqa: E501
                 + _("{command} to participate").format(command="/join")
             )
@@ -862,15 +861,8 @@ class SantaBot:
                         user_name = blocker_link.blocked_username
                         if user_name:
                             blocked_participants.append(user_name)
-                first = True
                 if blocked_participants:
-                    for blocked_participant in blocked_participants:
-                        if first:
-                            message += _("Cannot pair with: ")
-                            first = False
-                        else:
-                            message += ", "
-                        message += blocked_participant
+                    message += _("Cannot pair with: {names}").format(names=", ".join(blocked_participants))
                     message += "\n"
             message = message.replace("@", "")
             await self.reply_message(update=update, text=message)
