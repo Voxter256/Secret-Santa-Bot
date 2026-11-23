@@ -9,6 +9,7 @@ from bot.models.BlockedLink import BlockedLink
 from bot.models.Group import Group
 from bot.models.Link import Link
 from bot.models.Participant import Participant
+from bot.models.WishlistItem import WishlistItem
 
 
 class SqlParticipantRepository:
@@ -70,6 +71,63 @@ class SqlGroupRepository:
 
     def set_title(self, chat_id: int, title: str) -> None:
         self._set(chat_id, title=title)
+
+
+class SqlWishlistRepository:
+    """SQLAlchemy implementation of WishlistRepository."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def add(self, group_id: int, participant_id: int, details: str) -> WishlistItem:
+        item = WishlistItem(group_id=group_id, participant_id=participant_id, details=details)
+        self._session.add(item)
+        self._session.commit()
+        return item
+
+    def list_for(self, group_id: int, participant_id: int) -> list[WishlistItem]:
+        return (
+            self._session.query(WishlistItem)
+            .filter(
+                WishlistItem.group_id == group_id,
+                WishlistItem.participant_id == participant_id,
+            )
+            .order_by(WishlistItem.id)
+            .all()
+        )
+
+    def get(self, item_id: int) -> WishlistItem | None:
+        return self._session.get(WishlistItem, item_id)
+
+    def delete(self, item: WishlistItem) -> None:
+        self._session.delete(item)
+        self._session.commit()
+
+    def clear(self, group_id: int, participant_id: int) -> None:
+        self._session.query(WishlistItem).filter(
+            WishlistItem.group_id == group_id,
+            WishlistItem.participant_id == participant_id,
+        ).delete()
+        self._session.commit()
+
+    def count_for(self, group_id: int, participant_id: int) -> int:
+        return (
+            self._session.query(WishlistItem)
+            .filter(
+                WishlistItem.group_id == group_id,
+                WishlistItem.participant_id == participant_id,
+            )
+            .count()
+        )
+
+    def groups_with_items(self, participant_id: int) -> list[int]:
+        rows = (
+            self._session.query(WishlistItem.group_id)
+            .filter(WishlistItem.participant_id == participant_id)
+            .distinct()
+            .all()
+        )
+        return [row[0] for row in rows]
 
 
 class SqlLinkRepository:

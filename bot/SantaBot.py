@@ -24,6 +24,7 @@ from bot.repositories.sqlalchemy_repos import (
     SqlGroupRepository,
     SqlLinkRepository,
     SqlParticipantRepository,
+    SqlWishlistRepository,
 )
 from bot.services.exchange_service import ExchangeService
 
@@ -69,6 +70,7 @@ class SantaBot:
             groups=SqlGroupRepository(self.session),
             links=SqlLinkRepository(self.session),
             blocked_links=SqlBlockedLinkRepository(self.session),
+            wishlists=SqlWishlistRepository(self.session),
         )
 
         # Load every message catalog once instead of re-reading the .mo per update

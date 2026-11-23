@@ -59,6 +59,25 @@ class TestSchemaFromMigrations(MigratedDatabaseTestCase):
             revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
         self.assertEqual(revision, head)
 
+    def test_wishlist_items_are_group_scoped(self) -> None:
+        inspector = inspect(self.dbConnection.engine)
+        columns = {c["name"]: c for c in inspector.get_columns("wishlist_items")}
+        self.assertFalse(columns["group_id"]["nullable"])
+        self.assertFalse(columns["participant_id"]["nullable"])
+        self.assertFalse(columns["details"]["nullable"])
+
+        indexes = {i["name"]: i["column_names"] for i in inspector.get_indexes("wishlist_items")}
+        self.assertEqual(
+            indexes.get("ix_wishlist_items_group_participant"),
+            ["group_id", "participant_id"],
+        )
+
+        foreign_keys = inspector.get_foreign_keys("wishlist_items")
+        self.assertEqual(
+            {fk["referred_table"] for fk in foreign_keys},
+            {"groups", "participants"},
+        )
+
     def test_new_groups_opt_out_by_default(self) -> None:
         group = Group(telegram_id=123)
         self.bot.session.add(group)

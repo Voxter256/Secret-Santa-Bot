@@ -12,11 +12,13 @@ class TestExchangeService(unittest.TestCase):
         self.groups = MagicMock()
         self.links = MagicMock()
         self.blocked_links = MagicMock()
+        self.wishlists = MagicMock()
         self.service = ExchangeService(
             participants=self.participants,
             groups=self.groups,
             links=self.links,
             blocked_links=self.blocked_links,
+            wishlists=self.wishlists,
         )
 
     # ── Participant ────────────────────────────────────────────────────
@@ -237,3 +239,87 @@ class TestExchangeService(unittest.TestCase):
     def test_set_group_title_delegates(self):
         self.service.set_group_title(1, "Office Exchange")
         self.groups.set_title.assert_called_once_with(1, "Office Exchange")
+
+    # ── Wishlist ───────────────────────────────────────────────────────
+
+    def _joined(self):
+        self.groups.get_by_telegram_id.return_value = MagicMock(id=5)
+        self.links.get_by_santa_and_group.return_value = MagicMock()
+        self.wishlists.count_for.return_value = 0
+        self.wishlists.list_for.return_value = []
+
+    def test_add_wishlist_item_rejects_blank(self):
+        self._joined()
+        self.assertEqual(self.service.add_wishlist_item(1, 1, "   "), "empty")
+        self.wishlists.add.assert_not_called()
+
+    def test_add_wishlist_item_rejects_too_long(self):
+        self._joined()
+        self.assertEqual(self.service.add_wishlist_item(1, 1, "x" * 1025), "too_long")
+        self.wishlists.add.assert_not_called()
+
+    def test_add_wishlist_item_accepts_long_url(self):
+        self._joined()
+        url = "https://example.com/" + "a" * 900
+        self.assertEqual(self.service.add_wishlist_item(1, 1, url), "added")
+        self.wishlists.add.assert_called_once_with(5, 1, url)
+
+    def test_add_wishlist_item_strips_whitespace(self):
+        self._joined()
+        self.service.add_wishlist_item(1, 1, "  a book  ")
+        self.wishlists.add.assert_called_once_with(5, 1, "a book")
+
+    def test_add_wishlist_item_requires_group(self):
+        self.groups.get_by_telegram_id.return_value = None
+        self.assertEqual(self.service.add_wishlist_item(1, 1, "a"), "no_group")
+
+    def test_add_wishlist_item_requires_join(self):
+        self.groups.get_by_telegram_id.return_value = MagicMock(id=5)
+        self.links.get_by_santa_and_group.return_value = None
+        self.assertEqual(self.service.add_wishlist_item(1, 1, "a"), "not_joined")
+
+    def test_add_wishlist_item_rejects_when_full(self):
+        self._joined()
+        self.wishlists.count_for.return_value = 20
+        self.assertEqual(self.service.add_wishlist_item(1, 1, "a"), "full")
+        self.wishlists.add.assert_not_called()
+
+    def test_add_wishlist_item_rejects_when_total_would_overflow(self):
+        self._joined()
+        self.wishlists.count_for.return_value = 3
+        self.wishlists.list_for.return_value = [MagicMock(details="y" * 1024)] * 3
+        self.assertEqual(self.service.add_wishlist_item(1, 1, "z" * 1024), "total_too_long")
+        self.wishlists.add.assert_not_called()
+
+    def test_list_wishlist_items_resolves_group(self):
+        self._joined()
+        self.service.list_wishlist_items(1, 1)
+        self.wishlists.list_for.assert_called_once_with(5, 1)
+
+    def test_list_wishlist_items_without_group_returns_empty(self):
+        self.groups.get_by_telegram_id.return_value = None
+        self.assertEqual(self.service.list_wishlist_items(1, 1), [])
+
+    def test_remove_wishlist_item_by_position(self):
+        self._joined()
+        items = [MagicMock(id=7), MagicMock(id=9)]
+        self.wishlists.list_for.return_value = items
+        self.assertTrue(self.service.remove_wishlist_item(1, 1, 2))
+        self.wishlists.delete.assert_called_once_with(items[1])
+
+    def test_remove_wishlist_item_out_of_range(self):
+        self._joined()
+        self.assertFalse(self.service.remove_wishlist_item(1, 1, 1))
+        self.wishlists.delete.assert_not_called()
+
+    def test_clear_wishlist_delegates(self):
+        self._joined()
+        self.service.clear_wishlist(1, 1)
+        self.wishlists.clear.assert_called_once_with(5, 1)
+
+    def test_render_wishlist_numbers_items(self):
+        items = [MagicMock(details="a"), MagicMock(details="b")]
+        self.assertEqual(ExchangeService.render_wishlist("Title", items), "Title\n1. a\n2. b")
+
+    def test_render_wishlist_without_items_is_just_the_title(self):
+        self.assertEqual(ExchangeService.render_wishlist("Title", []), "Title")

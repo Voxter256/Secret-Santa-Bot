@@ -5,15 +5,24 @@ from typing import Callable
 
 from bot.models.Link import Link
 from bot.models.Participant import Participant
+from bot.models.WishlistItem import WishlistItem
 from bot.repositories.protocols import (
     BlockedLinkRepository,
     GroupRepository,
     LinkRepository,
     ParticipantRepository,
+    WishlistRepository,
 )
 from bot.services.pairing_engine import PairingEngine, PairingResult
 
 GettextFn = Callable[[str], str]
+
+# Wishlist rules. MAX_TOTAL_LENGTH is the important one: the delivery message is
+# capped by Telegram at 4096 characters, so a stored wishlist must stay well
+# under that or items would be silently dropped at send time.
+MAX_ITEMS = 20
+MAX_ITEM_LENGTH = 1024
+MAX_TOTAL_LENGTH = 3500
 
 
 class ExchangeService:
@@ -25,12 +34,14 @@ class ExchangeService:
         groups: GroupRepository,
         links: LinkRepository,
         blocked_links: BlockedLinkRepository,
+        wishlists: WishlistRepository,
         pairing_engine: type[PairingEngine] = PairingEngine,
     ) -> None:
         self._participants = participants
         self._groups = groups
         self._links = links
         self._blocked_links = blocked_links
+        self._wishlists = wishlists
         self._pairing = pairing_engine
 
     # ── Participant / address ──────────────────────────────────────────
@@ -81,6 +92,63 @@ class ExchangeService:
             "requires_address": bool(group.requires_address),
             "wishlist_enabled": bool(group.wishlist_enabled),
         }
+
+    # ── Wishlist ───────────────────────────────────────────────────────
+
+    @staticmethod
+    def render_wishlist(title: str, items: list[WishlistItem]) -> str:
+        lines = [f"{position}. {item.details}" for position, item in enumerate(items, start=1)]
+        return "\n".join([title, *lines])
+
+    @staticmethod
+    def _items_length(items: list[WishlistItem]) -> int:
+        return sum(len(f"{position}. {item.details}") + 1 for position, item in enumerate(items, start=1))
+
+    def add_wishlist_item(self, participant_id: int, chat_id: int, details: str) -> str:
+        """Add an item, returning a status key the handler can translate."""
+        text = details.strip()
+        if not text:
+            return "empty"
+        if len(text) > MAX_ITEM_LENGTH:
+            return "too_long"
+
+        group = self._groups.get_by_telegram_id(chat_id)
+        if group is None:
+            return "no_group"
+        if self._links.get_by_santa_and_group(participant_id, chat_id) is None:
+            return "not_joined"
+        if self._wishlists.count_for(group.id, participant_id) >= MAX_ITEMS:
+            return "full"
+
+        existing = self._wishlists.list_for(group.id, participant_id)
+        next_line = len(f"{len(existing) + 1}. {text}") + 1
+        if self._items_length(existing) + next_line > MAX_TOTAL_LENGTH:
+            return "total_too_long"
+
+        self._wishlists.add(group.id, participant_id, text)
+        return "added"
+
+    def list_wishlist_items(self, participant_id: int, chat_id: int) -> list[WishlistItem]:
+        group = self._groups.get_by_telegram_id(chat_id)
+        if group is None:
+            return []
+        return self._wishlists.list_for(group.id, participant_id)
+
+    def remove_wishlist_item(self, participant_id: int, chat_id: int, position: int) -> bool:
+        group = self._groups.get_by_telegram_id(chat_id)
+        if group is None:
+            return False
+        items = self._wishlists.list_for(group.id, participant_id)
+        if position < 1 or position > len(items):
+            return False
+        self._wishlists.delete(items[position - 1])
+        return True
+
+    def clear_wishlist(self, participant_id: int, chat_id: int) -> None:
+        group = self._groups.get_by_telegram_id(chat_id)
+        if group is None:
+            return
+        self._wishlists.clear(group.id, participant_id)
 
     # ── Join / Leave ───────────────────────────────────────────────────
 
