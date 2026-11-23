@@ -6,6 +6,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from bot.models.BlockedLink import BlockedLink
+from bot.models.Feedback import Feedback
 from bot.models.Group import Group
 from bot.models.Link import Link
 from bot.models.Participant import Participant
@@ -278,3 +279,35 @@ class SqlBlockedLinkRepository:
             bl.blocked_id = participant_id
             bl.blocked_username = None
             self._session.commit()
+
+
+class SqlFeedbackRepository:
+    """SQLAlchemy implementation of FeedbackRepository."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def add(
+        self,
+        telegram_id: int,
+        telegram_username: str | None,
+        chat_id: int | None,
+        body: str,
+    ) -> Feedback:
+        record = Feedback(
+            telegram_id=telegram_id,
+            telegram_username=telegram_username,
+            chat_id=chat_id,
+            body=body,
+        )
+        self._session.add(record)
+        # Commit before forwarding so a failed Telegram send cannot lose the text.
+        self._session.commit()
+        return record
+
+    def mark_forwarded(self, feedback_id: int) -> None:
+        record = self._session.get(Feedback, feedback_id)
+        if record is None:
+            return
+        record.forwarded_at = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        self._session.commit()

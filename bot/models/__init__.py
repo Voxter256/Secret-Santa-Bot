@@ -11,6 +11,7 @@ Reference the classes from their own modules
 
 from bot.models.BlockedLink import BlockedLink
 from bot.models.ExchangeEvent import ExchangeEvent
+from bot.models.Feedback import Feedback
 from bot.models.Group import Group
 from bot.models.Link import Link
 from bot.models.Participant import Participant
@@ -19,6 +20,7 @@ from bot.models.WishlistItem import WishlistItem
 __all__ = [
     "BlockedLink",
     "ExchangeEvent",
+    "Feedback",
     "Group",
     "Link",
     "Participant",

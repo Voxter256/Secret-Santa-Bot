@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Protocol
 
 from bot.models.BlockedLink import BlockedLink
+from bot.models.Feedback import Feedback
 from bot.models.Group import Group
 from bot.models.Link import Link
 from bot.models.Participant import Participant
@@ -61,3 +62,14 @@ class BlockedLinkRepository(Protocol):
     def delete(self, blocked_link: BlockedLink) -> None: ...
     def get_by_participant_ids(self, participant_ids: list[int]) -> list[BlockedLink]: ...
     def resolve_pending_block(self, username: str, participant_id: int) -> None: ...
+
+
+class FeedbackRepository(Protocol):
+    def add(
+        self,
+        telegram_id: int,
+        telegram_username: str | None,
+        chat_id: int | None,
+        body: str,
+    ) -> Feedback: ...
+    def mark_forwarded(self, feedback_id: int) -> None: ...

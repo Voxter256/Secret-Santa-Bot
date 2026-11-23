@@ -39,6 +39,7 @@ from bot.models.Link import Link
 from bot.models.Participant import Participant
 from bot.repositories.sqlalchemy_repos import (
     SqlBlockedLinkRepository,
+    SqlFeedbackRepository,
     SqlGroupRepository,
     SqlLinkRepository,
     SqlParticipantRepository,
@@ -52,6 +53,11 @@ LOCALE_DIR = pathlib.Path(__file__).parent / "locale"
 # Updates older than this are discarded; override with MESSAGE_MAX_AGE_SECONDS.
 DEFAULT_MAX_MESSAGE_AGE_SECONDS = 60
 MAX_MESSAGE_AGE_ENV_VAR = "MESSAGE_MAX_AGE_SECONDS"
+
+# /feedback is forwarded to this private chat. Unset means "store it only".
+FEEDBACK_CHAT_ENV_VAR = "FEEDBACK_CHAT_ID"
+# Telegram caps a message at 4096 characters; leave room for the forward header.
+MAX_FEEDBACK_LENGTH = 3500
 
 
 class SantaBot:
@@ -69,6 +75,7 @@ class SantaBot:
         dbConnection,
         exchange: ExchangeService | None = None,
         max_message_age_seconds: int | None = None,
+        feedback_repo: SqlFeedbackRepository | None = None,
     ):
         # create dummy DB Models so backrefs work
         BlockedLink()
@@ -81,6 +88,7 @@ class SantaBot:
         self.token = None
         self.bot_id = None
         self.max_message_age_seconds = self.resolve_max_message_age_seconds(max_message_age_seconds)
+        self.feedback_chat_id = self.resolve_feedback_chat_id()
 
         # Wire repositories and service; callers may inject their own service
         self.exchange = exchange or ExchangeService(
@@ -90,6 +98,7 @@ class SantaBot:
             blocked_links=SqlBlockedLinkRepository(self.session),
             wishlists=SqlWishlistRepository(self.session),
         )
+        self.feedback_repo = feedback_repo or SqlFeedbackRepository(self.session)
 
         # Load every message catalog once instead of re-reading the .mo per update
         self.translations: dict[str, Callable[[str], str]] = self.preload_translations()
@@ -108,6 +117,7 @@ class SantaBot:
             CommandHandler("status", self.status),
             CommandHandler("start_exchange", self.start_exchange),
             CommandHandler("reset_exchange", self.reset_exchange),
+            CommandHandler("feedback", self.feedback),
             InlineQueryHandler(self.inline_wishlists),
             ChatMemberHandler(self.bot_membership_changed, ChatMemberHandler.MY_CHAT_MEMBER),
             CallbackQueryHandler(self.wish_callback, pattern=r"^wish"),
@@ -227,6 +237,9 @@ class SantaBot:
             + "\n"
             + "/reset_exchange \n"
             + _("Resets the gift exchange by removing every participant's assigned recipient.")  # noqa: E501
+            + "\n"
+            + "/feedback \n"
+            + _("Sends a problem report or suggestion about the bot.")
         )
         await self.reply_message(update=update, text=message)
 
@@ -1152,6 +1165,22 @@ class SantaBot:
             return DEFAULT_MAX_MESSAGE_AGE_SECONDS
         return value
 
+    @staticmethod
+    def resolve_feedback_chat_id() -> int | None:
+        """Return the private chat that receives /feedback, or None when unset."""
+        raw = os.environ.get(FEEDBACK_CHAT_ENV_VAR, "").strip()
+        if not raw:
+            return None
+        try:
+            value = int(raw)
+        except ValueError:
+            logging.warning(f"Ignore {FEEDBACK_CHAT_ENV_VAR}={raw!r}: not an integer")
+            return None
+        if value <= 0:
+            logging.warning(f"Ignore {FEEDBACK_CHAT_ENV_VAR}={value}: must be a positive chat id")
+            return None
+        return value
+
     def is_update_expired(self, updateObject, handler_name: str | None = None) -> bool:
         """True when an update is too old to act on. Every drop is logged with why."""
         update_id = getattr(updateObject, "update_id", None)
@@ -1192,3 +1221,68 @@ class SantaBot:
             (message.text or "")[:200],
         )
         return True
+
+    # ── Feedback ────────────────────────────────────────────────────────
+
+    @staticmethod
+    def feedback_body(update: Update) -> str:
+        """Everything after the command word, newlines intact."""
+        message = update.effective_message
+        text = (message.text or "") if message is not None else ""
+        parts = text.split(maxsplit=1)
+        return parts[1].strip() if len(parts) == 2 else ""
+
+    @staticmethod
+    def format_feedback(record) -> str:
+        """Owner-facing envelope. Deliberately untranslated: only the owner reads it."""
+        sender = f"@{record.telegram_username}" if record.telegram_username else f"id {record.telegram_id}"
+        origin = f"chat {record.chat_id}" if record.chat_id else "unknown chat"
+        return f"Feedback #{record.id} from {sender} ({origin}):\n\n{record.body}"
+
+    @rejects_stale_updates
+    async def feedback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        _ = self.gettext_translation(update.effective_user)
+        body = self.feedback_body(update)
+        if not body:
+            await self.reply_message(
+                update=update,
+                text=_(
+                    "Send feedback with /feedback <message>. "
+                    "For example: /feedback the exchange finished but I never got my partner."
+                ),
+            )
+            return
+        if len(body) > MAX_FEEDBACK_LENGTH:
+            await self.reply_message(
+                update=update,
+                text=_("That is too long. Please keep feedback under {max} characters.").format(
+                    max=MAX_FEEDBACK_LENGTH
+                ),
+            )
+            return
+
+        user = update.effective_user
+        chat = update.effective_chat
+        try:
+            record = self.feedback_repo.add(user.id, user.username, chat.id if chat is not None else None, body)
+        except Exception as this_ex:
+            logging.exception(f"Feedback could not be stored for user {user.id}: {this_ex}")
+            await self.reply_message(update=update, text=_("Sorry, I could not save that. Please try again."))
+            return
+        logging.info("Feedback %s stored | user %s | chat %s | %s chars", record.id, user.id, record.chat_id, len(body))
+
+        if self.feedback_chat_id is None:
+            logging.warning("Feedback %s stored but %s is unset; nobody was notified", record.id, FEEDBACK_CHAT_ENV_VAR)
+        else:
+            try:
+                await self.send_message(
+                    context=context,
+                    chat_id=self.feedback_chat_id,
+                    text=self.format_feedback(record),
+                )
+                self.feedback_repo.mark_forwarded(record.id)
+            except Exception as this_ex:
+                # The row is committed already: an undelivered forward is still readable in the DB.
+                logging.warning("Feedback %s could not be forwarded: %s", record.id, this_ex)
+
+        await self.reply_message(update=update, text=_("Thanks, I saved your feedback."))

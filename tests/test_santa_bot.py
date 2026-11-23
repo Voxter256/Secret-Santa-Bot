@@ -12,6 +12,7 @@ from telegram.error import BadRequest, Forbidden
 from bot._migrate import run_migrations
 from bot.DBConnection import DBConnection
 from bot.models.BlockedLink import BlockedLink
+from bot.models.Feedback import Feedback
 from bot.models.Group import Group
 from bot.models.Link import Link
 from bot.models.Participant import Participant
@@ -35,6 +36,26 @@ class MigratedDatabaseTestCase(unittest.IsolatedAsyncioTestCase):
         self.bot.session.close()
         self.dbConnection.engine.dispose()
 
+    def _make_update_mock(
+        self, chat_id=1, user_id=10, username="TestUser", chat_type="group", language_code="en", message_date=None
+    ):
+        import datetime
+
+        update = MagicMock()
+        update.effective_chat.id = chat_id
+        update.effective_chat.type = chat_type
+        update.effective_chat.title = "Test Group"
+        update.effective_user.id = user_id
+        update.effective_user.username = username
+        update.effective_user.name = username
+        update.effective_user.language_code = language_code
+        update.effective_message.text = ""
+        if message_date is None:
+            message_date = datetime.datetime.now(datetime.timezone.utc)
+        update.effective_message.date = message_date
+        update.effective_message.reply_to_message = None
+        return update
+
 
 class TestSchemaFromMigrations(MigratedDatabaseTestCase):
     """The test schema must be produced by Alembic, not Base.metadata."""
@@ -47,6 +68,7 @@ class TestSchemaFromMigrations(MigratedDatabaseTestCase):
                 "alembic_version",
                 "blocked_links",
                 "exchange_events",
+                "feedback",
                 "groups",
                 "links",
                 "participants",
@@ -262,26 +284,6 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
     """Tests for message handler flows and set_and_send_individual_result."""
 
     # -- helpers --
-
-    def _make_update_mock(
-        self, chat_id=1, user_id=10, username="TestUser", chat_type="group", language_code="en", message_date=None
-    ):
-        import datetime
-
-        update = MagicMock()
-        update.effective_chat.id = chat_id
-        update.effective_chat.type = chat_type
-        update.effective_chat.title = "Test Group"
-        update.effective_user.id = user_id
-        update.effective_user.username = username
-        update.effective_user.name = username
-        update.effective_user.language_code = language_code
-        update.effective_message.text = ""
-        if message_date is None:
-            message_date = datetime.datetime.now(datetime.timezone.utc)
-        update.effective_message.date = message_date
-        update.effective_message.reply_to_message = None
-        return update
 
     async def _setup_participant(self, user_id=10, username="TestUser", address="123 Main St"):
         p = Participant(telegram_id=user_id, telegram_username=username, address=address)
@@ -1351,3 +1353,94 @@ class TestUpdateAgeLimit(MigratedDatabaseTestCase):
         update.effective_user.id = 1
         await self.bot.start(update, Mock())
         mock_reply.assert_called_with(update=update, text="You must send me this in a private chat")
+
+
+class TestFeedbackHandler(MigratedDatabaseTestCase):
+    """The /feedback command stores the text, then forwards it to the owner's chat."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.bot.feedback_chat_id = 999
+
+    def _update(self, text="/feedback the status command said finished"):
+        update = self._make_update_mock(chat_type="private")
+        update.effective_message.text = text
+        return update
+
+    @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "send_message")
+    @patch.object(SantaBot, "is_update_expired")
+    async def test_feedback_is_stored_and_forwarded(self, mock_expired, mock_send, mock_reply):
+        mock_expired.return_value = False
+        await self.bot.feedback(self._update(), Mock())
+
+        record = self.bot.session.query(Feedback).one()
+        self.assertEqual(record.body, "the status command said finished")
+        self.assertEqual(record.telegram_id, 10)
+        self.assertIsNotNone(record.forwarded_at)
+
+        mock_send.assert_called_once()
+        sent = mock_send.call_args.kwargs
+        self.assertEqual(sent["chat_id"], 999)
+        self.assertIn("the status command said finished", sent["text"])
+        self.assertIn("@TestUser", sent["text"])
+        self.assertEqual(mock_reply.call_args.kwargs["text"], "Thanks, I saved your feedback.")
+
+    @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "send_message")
+    @patch.object(SantaBot, "is_update_expired")
+    async def test_feedback_without_inbox_is_stored_only(self, mock_expired, mock_send, mock_reply):
+        mock_expired.return_value = False
+        self.bot.feedback_chat_id = None
+        await self.bot.feedback(self._update(), Mock())
+
+        record = self.bot.session.query(Feedback).one()
+        self.assertEqual(record.body, "the status command said finished")
+        self.assertIsNone(record.forwarded_at)
+        mock_send.assert_not_called()
+        self.assertEqual(mock_reply.call_args.kwargs["text"], "Thanks, I saved your feedback.")
+
+    @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "send_message")
+    @patch.object(SantaBot, "is_update_expired")
+    async def test_feedback_without_body_explains_usage(self, mock_expired, mock_send, mock_reply):
+        mock_expired.return_value = False
+        await self.bot.feedback(self._update("/feedback"), Mock())
+
+        self.assertEqual(self.bot.session.query(Feedback).count(), 0)
+        mock_send.assert_not_called()
+        self.assertIn("/feedback <message>", mock_reply.call_args.kwargs["text"])
+
+    @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "send_message")
+    @patch.object(SantaBot, "is_update_expired")
+    async def test_feedback_longer_than_a_telegram_message_is_rejected(self, mock_expired, mock_send, mock_reply):
+        mock_expired.return_value = False
+        await self.bot.feedback(self._update("/feedback " + "x" * 3501), Mock())
+
+        self.assertEqual(self.bot.session.query(Feedback).count(), 0)
+        mock_send.assert_not_called()
+        self.assertIn("3500", mock_reply.call_args.kwargs["text"])
+
+    @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "send_message")
+    @patch.object(SantaBot, "is_update_expired")
+    async def test_failed_forward_keeps_the_feedback(self, mock_expired, mock_send, mock_reply):
+        mock_expired.return_value = False
+        mock_send.side_effect = Forbidden("bot was blocked by the user")
+        await self.bot.feedback(self._update(), Mock())
+
+        record = self.bot.session.query(Feedback).one()
+        self.assertEqual(record.body, "the status command said finished")
+        self.assertIsNone(record.forwarded_at)
+        self.assertEqual(mock_reply.call_args.kwargs["text"], "Thanks, I saved your feedback.")
+
+    @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "send_message")
+    @patch.object(SantaBot, "is_update_expired")
+    async def test_feedback_keeps_newlines(self, mock_expired, mock_send, mock_reply):
+        mock_expired.return_value = False
+        await self.bot.feedback(self._update("/feedback first line\nsecond line"), Mock())
+
+        record = self.bot.session.query(Feedback).one()
+        self.assertEqual(record.body, "first line\nsecond line")
