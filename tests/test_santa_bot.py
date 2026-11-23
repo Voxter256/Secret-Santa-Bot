@@ -79,6 +79,11 @@ class TestSchemaFromMigrations(MigratedDatabaseTestCase):
             {"groups", "participants"},
         )
 
+    def test_groups_track_when_the_bot_lost_access(self) -> None:
+        columns = {c["name"]: c for c in inspect(self.dbConnection.engine).get_columns("groups")}
+        self.assertIn("left_at", columns)
+        self.assertTrue(columns["left_at"]["nullable"])
+
     def test_new_groups_opt_out_by_default(self) -> None:
         group = Group(telegram_id=123)
         self.bot.session.add(group)
@@ -897,6 +902,35 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         member = AsyncMock()
         member.user.name = name
         return member
+
+    async def test_membership_update_marks_the_group_as_left(self):
+        await self._setup_group(1)
+        update = Mock()
+        update.my_chat_member = Mock()
+        update.my_chat_member.chat.id = 1
+        update.my_chat_member.new_chat_member.status = "left"
+        await self.bot.bot_membership_changed(update, Mock())
+        self.assertTrue(self.bot.exchange.group_is_orphaned(1))
+
+    async def test_membership_update_clears_the_flag_when_readded(self):
+        group = await self._setup_group(1)
+        group.left_at = datetime.datetime(2026, 11, 23)
+        self.bot.session.commit()
+        update = Mock()
+        update.my_chat_member = Mock()
+        update.my_chat_member.chat.id = 1
+        update.my_chat_member.new_chat_member.status = "member"
+        await self.bot.bot_membership_changed(update, Mock())
+        self.assertFalse(self.bot.exchange.group_is_orphaned(1))
+
+    async def test_membership_update_ignores_other_transitions(self):
+        await self._setup_group(1)
+        update = Mock()
+        update.my_chat_member = Mock()
+        update.my_chat_member.chat.id = 1
+        update.my_chat_member.new_chat_member.status = "restricted"
+        await self.bot.bot_membership_changed(update, Mock())
+        self.assertFalse(self.bot.exchange.group_is_orphaned(1))
 
     # -- wishlist and settings handlers --
 

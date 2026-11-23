@@ -20,9 +20,11 @@ from telegram import (
     LinkPreviewOptions,
     Update,
 )
+from telegram.constants import ChatMemberStatus
 from telegram.error import BadRequest, Forbidden
 from telegram.ext import (
     CallbackQueryHandler,
+    ChatMemberHandler,
     CommandHandler,
     ContextTypes,
     InlineQueryHandler,
@@ -107,6 +109,7 @@ class SantaBot:
             CommandHandler("start_exchange", self.start_exchange),
             CommandHandler("reset_exchange", self.reset_exchange),
             InlineQueryHandler(self.inline_wishlists),
+            ChatMemberHandler(self.bot_membership_changed, ChatMemberHandler.MY_CHAT_MEMBER),
             CallbackQueryHandler(self.wish_callback, pattern=r"^wish"),
             CallbackQueryHandler(self.settings_callback, pattern=r"^cfg:"),
             MessageHandler(filters.REPLY & filters.TEXT, self.pending_text),
@@ -321,6 +324,27 @@ class SantaBot:
             await self.wishlist_input(update, context)
         else:
             await self.address(update, context)
+
+    async def bot_membership_changed(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Record when the bot is removed from, or added back to, a group.
+
+        Kept as a timestamp rather than a delete: the links and wishlists behind
+        an exchange are the only record it happened.
+        """
+        try:
+            change = update.my_chat_member
+            if change is None:
+                return
+            chat_id = change.chat.id
+            status = change.new_chat_member.status
+            logging.info(f"my_chat_member | Chat: {chat_id} | status: {status}")
+
+            if status in (ChatMemberStatus.LEFT, ChatMemberStatus.BANNED):
+                self.exchange.mark_group_left(chat_id)
+            elif status in (ChatMemberStatus.MEMBER, ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER):
+                self.exchange.mark_group_active(chat_id)
+        except Exception as this_ex:
+            logging.exception(this_ex)
 
     async def inline_wishlists(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """One result per exchange, so the picker answers "which wishlist?"."""

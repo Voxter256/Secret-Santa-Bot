@@ -1,3 +1,5 @@
+import datetime
+
 from sqlalchemy import Boolean, Column, DateTime, Integer, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -13,4 +15,5 @@ class Group(Base):
     title: Mapped[str | None] = mapped_column(String(255))
     requires_address: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("0"))
     wishlist_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("0"))
+    left_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())

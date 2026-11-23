@@ -72,6 +72,9 @@ class SqlGroupRepository:
     def set_title(self, chat_id: int, title: str) -> None:
         self._set(chat_id, title=title)
 
+    def set_left_at(self, chat_id: int, value: object) -> None:
+        self._set(chat_id, left_at=value)
+
 
 class SqlWishlistRepository:
     """SQLAlchemy implementation of WishlistRepository."""

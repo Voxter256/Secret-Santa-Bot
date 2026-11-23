@@ -1,3 +1,4 @@
+import datetime
 import unittest
 from unittest.mock import MagicMock
 
@@ -239,6 +240,29 @@ class TestExchangeService(unittest.TestCase):
     def test_set_group_title_delegates(self):
         self.service.set_group_title(1, "Office Exchange")
         self.groups.set_title.assert_called_once_with(1, "Office Exchange")
+
+    def test_mark_group_left_stores_a_timestamp(self):
+        self.service.mark_group_left(1)
+        self.assertTrue(self.groups.set_left_at.called)
+        args = self.groups.set_left_at.call_args.args
+        self.assertEqual(args[0], 1)
+        self.assertIsInstance(args[1], datetime.datetime)
+
+    def test_mark_group_active_clears_the_flag(self):
+        self.service.mark_group_active(1)
+        self.groups.set_left_at.assert_called_once_with(1, None)
+
+    def test_group_is_orphaned_when_flagged(self):
+        self.groups.get_by_telegram_id.return_value = MagicMock(left_at="2026-11-23")
+        self.assertTrue(self.service.group_is_orphaned(1))
+
+    def test_group_is_not_orphaned_when_missing(self):
+        self.groups.get_by_telegram_id.return_value = None
+        self.assertFalse(self.service.group_is_orphaned(1))
+
+    def test_group_is_not_orphaned_while_active(self):
+        self.groups.get_by_telegram_id.return_value = MagicMock(left_at=None)
+        self.assertFalse(self.service.group_is_orphaned(1))
 
     def test_participant_groups_delegates(self):
         groups = [MagicMock(id=1), MagicMock(id=2)]

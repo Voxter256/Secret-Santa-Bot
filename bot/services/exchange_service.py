@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import uuid
 from typing import Callable
 
@@ -87,6 +88,18 @@ class ExchangeService:
 
     def set_group_title(self, chat_id: int, title: str) -> None:
         self._groups.set_title(chat_id, title)
+
+    def mark_group_left(self, chat_id: int) -> None:
+        """Record that the bot lost access; data is kept for audit."""
+        self._groups.set_left_at(chat_id, datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None))
+
+    def mark_group_active(self, chat_id: int) -> None:
+        """Clear the flag if the bot is added back."""
+        self._groups.set_left_at(chat_id, None)
+
+    def group_is_orphaned(self, chat_id: int) -> bool:
+        group = self._groups.get_by_telegram_id(chat_id)
+        return bool(group is not None and group.left_at is not None)
 
     def group_options(self, chat_id: int) -> dict[str, bool]:
         group = self._groups.get_by_telegram_id(chat_id)
