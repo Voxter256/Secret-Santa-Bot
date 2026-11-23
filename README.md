@@ -19,7 +19,7 @@ Christmas can be stressful if you have to find gifts for everyone all within you
 
 ## Installation
 
-Requires Python 3.10+ (PEP 604 annotations are evaluated at class-definition time) and [uv](https://docs.astral.sh/uv/).
+Requires Python 3.11+ (the code uses `datetime.UTC`, added in 3.11) and [uv](https://docs.astral.sh/uv/).
 
     uv sync
     export TELEGRAM_BOT_TOKEN="<token from @BotFather>"
@@ -30,7 +30,7 @@ Or keep the settings in a file instead of the shell:
     uv sync
     uv run --env-file .env python run.py
 
-`uv run` reads a `.env` in the project directory by default, so the flag is only needed to point at a different file; `--no-env-file` turns it off entirely.
+`uv run` does not read a `.env` on its own: `--env-file .env` or `UV_ENV_FILE` turns dotenv loading on, and `--no-env-file` turns it back off.
 
 The first run creates `bot.sqlite` when it is missing and applies the Alembic migrations before the bot starts, so an existing database is upgraded rather than rejected.
 
@@ -40,6 +40,7 @@ The first run creates `bot.sqlite` when it is missing and applies the Alembic mi
 | --- | --- | --- |
 | `TELEGRAM_BOT_TOKEN` | required | Token from @BotFather. |
 | `MESSAGE_MAX_AGE_SECONDS` | `60` | Updates older than this are discarded, so a restart does not act on messages queued while it was down. |
+| `FEEDBACK_CHAT_ID` | unset | Private chat that receives `/feedback`. Unset stores reports but notifies nobody. |
 | `DATABASE_URL` | unset | Database used by the AWS Lambda entrypoint. The local entrypoint (`run.py`) uses `bot.sqlite` in the working directory and ignores it. |
 
 ### Docker
@@ -102,6 +103,9 @@ Begins the gift exchange by assigning a recipient to every participant, then mes
 
 `/reset_exchange`  
 Resets the gift exchange by removing every participant's assigned recipient.
+
+`/feedback`  
+Sends a problem report or suggestion about the bot.
 
 ## Exchange settings
 
