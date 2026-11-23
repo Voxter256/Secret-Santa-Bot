@@ -911,6 +911,16 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         return update
 
     @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "is_update_expired")
+    async def test_help_lists_the_new_commands(self, mock_expired, mock_reply):
+        mock_expired.return_value = False
+        update = self._make_update_mock()
+        await self.bot.help(update, Mock())
+        text = mock_reply.call_args.kwargs["text"]
+        self.assertIn("/wish", text)
+        self.assertIn("/settings", text)
+
+    @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
     @patch.object(SantaBot, "is_update_expired")
     async def test_wish_command_rejects_group_chat(self, mock_expired, mock_send, mock_reply):

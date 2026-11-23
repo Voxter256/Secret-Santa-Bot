@@ -177,8 +177,14 @@ class SantaBot:
             + "/hello \n"
             + _("Sent only in a group chat to enable the gift exchange.")
             + "\n"  # noqa: E501
+            + "/settings \n"
+            + _("Sent only in a group chat by an admin to choose what this exchange requires.")
+            + "\n"  # noqa: E501
             + "/address \n"
             + _("Sent only in a private message to show and update your address.")
+            + "\n"  # noqa: E501
+            + "/wish \n"
+            + _("Sent only in a private message to edit your wishlist for an exchange.")
             + "\n"  # noqa: E501
             + "/join \n"
             + _("Joins you in the gift exchange in this chat.")
