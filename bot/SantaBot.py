@@ -293,12 +293,26 @@ class SantaBot:
         except Exception as this_ex:
             logging.exception(this_ex)
 
-    @staticmethod
-    def group_label(group) -> str:
-        """Human label for a group, falling back to its telegram id."""
+    async def group_label(self, context, group, _) -> str:
+        """Title for a group, fetching and caching it from Telegram when unknown.
+
+        Groups created before ``groups.title`` existed have no stored title, and a
+        numeric chat id is useless in a picker, so ask Telegram once and persist it.
+        """
         if group is None:
-            return "?"
-        return group.title or str(group.telegram_id)
+            return _("Unknown exchange")
+        if group.title:
+            return group.title
+        try:
+            chat = await context.bot.get_chat(group.telegram_id)
+        except Exception as this_ex:
+            logging.warning(f"Could not read the title of chat {group.telegram_id}: {this_ex}")
+            return _("Exchange {id}").format(id=group.telegram_id)
+        title = getattr(chat, "title", None) or getattr(chat, "full_name", None)
+        if title:
+            self.exchange.set_group_title(group.telegram_id, title)
+            return title
+        return _("Exchange {id}").format(id=group.telegram_id)
 
     @rejects_stale_updates
     async def pending_text(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -321,7 +335,7 @@ class SantaBot:
                     items = self.exchange.list_wishlist_items(participant.id, group.telegram_id)
                     if not items:
                         continue
-                    label = self.group_label(group)
+                    label = await self.group_label(context, group, _)
                     if filter_text and filter_text not in str(group.telegram_id) and filter_text not in label.lower():
                         continue
                     body = "\n".join(f"- {item.details}" for item in items)
@@ -371,7 +385,11 @@ class SantaBot:
                 return
 
             keyboard = [
-                [InlineKeyboardButton(self.group_label(group), callback_data=f"wish:{group.telegram_id}")]
+                [
+                    InlineKeyboardButton(
+                        await self.group_label(context, group, _), callback_data=f"wish:{group.telegram_id}"
+                    )
+                ]
                 for group in groups
             ]
             await self.send_message(
@@ -384,7 +402,7 @@ class SantaBot:
             logging.exception(this_ex)
 
     async def show_wishlist(self, participant, chat_id: int, context, _) -> None:
-        label = self.group_label(self.exchange.get_group(chat_id))
+        label = await self.group_label(context, self.exchange.get_group(chat_id), _)
         items = self.exchange.list_wishlist_items(participant.id, chat_id)
         if items:
             body = "\n".join(f"{position}. {item.details}" for position, item in enumerate(items, start=1))

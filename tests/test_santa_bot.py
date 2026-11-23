@@ -993,6 +993,37 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
     @patch.object(SantaBot, "is_update_expired")
+    async def test_wish_view_fetches_a_missing_group_title(self, mock_expired, mock_send, mock_reply):
+        mock_expired.return_value = False
+        participant = await self._setup_participant()
+        group = await self._setup_group(1)
+        await self._setup_link(participant.id, group.id)
+        context = Mock()
+        context.user_data = {}
+        context.bot.get_chat = AsyncMock(return_value=Mock(title="Fetched Group"))
+        update = self._make_update_mock(chat_type="private")
+        await self.bot.wish_command(update, context)
+        self.assertIn("Fetched Group", mock_send.call_args.kwargs["text"])
+        self.assertEqual(self.bot.exchange.get_group(1).title, "Fetched Group")
+
+    @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "send_message")
+    @patch.object(SantaBot, "is_update_expired")
+    async def test_wish_view_falls_back_when_the_title_cannot_be_read(self, mock_expired, mock_send, mock_reply):
+        mock_expired.return_value = False
+        participant = await self._setup_participant()
+        group = await self._setup_group(1)
+        await self._setup_link(participant.id, group.id)
+        context = Mock()
+        context.user_data = {}
+        context.bot.get_chat = AsyncMock(side_effect=BadRequest("chat not found"))
+        update = self._make_update_mock(chat_type="private")
+        await self.bot.wish_command(update, context)
+        self.assertIn("Exchange 1", mock_send.call_args.kwargs["text"])
+
+    @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "send_message")
+    @patch.object(SantaBot, "is_update_expired")
     async def test_wish_command_multiple_groups_shows_picker(self, mock_expired, mock_send, mock_reply):
         mock_expired.return_value = False
         participant = await self._setup_participant()
