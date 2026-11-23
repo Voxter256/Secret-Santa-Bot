@@ -912,6 +912,24 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "is_update_expired")
+    async def test_help_mentions_every_registered_command(self, mock_expired, mock_reply):
+        from telegram.ext import CommandHandler
+
+        mock_expired.return_value = False
+        update = self._make_update_mock()
+        await self.bot.help(update, Mock())
+        text = mock_reply.call_args.kwargs["text"]
+
+        commands = set()
+        for handler in self.bot.handlers:
+            if isinstance(handler, CommandHandler):
+                commands |= set(handler.commands)
+        self.assertTrue(commands)
+        missing = sorted(f"/{command}" for command in commands if f"/{command}" not in text)
+        self.assertEqual(missing, [], "commands registered but missing from /help")
+
+    @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "is_update_expired")
     async def test_help_lists_the_new_commands(self, mock_expired, mock_reply):
         mock_expired.return_value = False
         update = self._make_update_mock()

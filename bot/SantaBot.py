@@ -171,6 +171,9 @@ class SantaBot:
         message = (
             _("Command List:")
             + "\n"
+            + "/help \n"
+            + _("Shows this list of commands.")
+            + "\n"
             + "/start \n"
             + _("Sent only in a private message to begin personal setup.")
             + "\n"  # noqa: E501
