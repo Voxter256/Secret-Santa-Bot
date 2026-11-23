@@ -1256,6 +1256,46 @@ class TestUpdateAgeLimit(MigratedDatabaseTestCase):
         broken.effective_message.date = None
         self.assertTrue(self.bot.is_update_expired(broken))
 
+    def test_expired_update_logs_the_reason_and_context(self) -> None:
+        self.bot.max_message_age_seconds = 120
+        update = MagicMock()
+        update.update_id = 4242
+        update.effective_chat.id = -100123
+        update.effective_user.id = 77
+        update.effective_user.username = "tester"
+        update.effective_message.text = "/join"
+        update.effective_message.date = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=600)
+
+        with self.assertLogs(level="WARNING") as captured:
+            expired = self.bot.is_update_expired(update, handler_name="join")
+
+        self.assertTrue(expired)
+        line = "\n".join(captured.output)
+        for expected in ("update 4242", "(join)", "chat -100123", "user 77", "@tester", "120s", "/join"):
+            self.assertIn(expected, line)
+        self.assertIn("expired", line)
+
+    def test_fresh_update_logs_nothing(self) -> None:
+        self.bot.max_message_age_seconds = 120
+        update = MagicMock()
+        update.effective_message.date = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=5)
+        with self.assertNoLogs(level="WARNING"):
+            self.assertFalse(self.bot.is_update_expired(update))
+
+    def test_update_without_a_message_logs_why_it_was_dropped(self) -> None:
+        update = MagicMock()
+        update.effective_message = None
+        with self.assertLogs(level="WARNING") as captured:
+            self.assertTrue(self.bot.is_update_expired(update))
+        self.assertIn("no message to age-check", "\n".join(captured.output))
+
+    def test_unreadable_timestamp_logs_the_cause(self) -> None:
+        update = MagicMock()
+        update.effective_message.date = None
+        with self.assertLogs(level="WARNING") as captured:
+            self.assertTrue(self.bot.is_update_expired(update))
+        self.assertIn("unreadable timestamp", "\n".join(captured.output))
+
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "is_update_expired", return_value=True)
     async def test_stale_update_never_reaches_handler_body(
@@ -1266,7 +1306,7 @@ class TestUpdateAgeLimit(MigratedDatabaseTestCase):
         update.effective_chat.type = "private"
         update.effective_user.id = 1
         await self.bot.start(update, Mock())
-        mock_expired.assert_called_once_with(update)
+        mock_expired.assert_called_once_with(update, handler_name="start")
         mock_reply.assert_not_called()
 
     @patch.object(SantaBot, "reply_message")

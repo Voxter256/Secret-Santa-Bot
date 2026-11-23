@@ -12,7 +12,7 @@ def rejects_stale_updates(handler: Callable[..., Any]) -> Callable[..., Any]:
 
     @functools.wraps(handler)
     async def wrapper(self: Any, update: Any, context: Any) -> Any:
-        if self.is_update_expired(update):
+        if self.is_update_expired(update, handler_name=handler.__name__):
             return None
         return await handler(self, update, context)
 

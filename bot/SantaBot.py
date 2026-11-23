@@ -1135,20 +1135,43 @@ class SantaBot:
             return DEFAULT_MAX_MESSAGE_AGE_SECONDS
         return value
 
-    def is_update_expired(self, updateObject) -> bool:
-        try:
-            message = updateObject.effective_message
-            currentTime = datetime.datetime.now(datetime.timezone.utc)
-            originalDate = message.date.replace(tzinfo=datetime.timezone.utc)
-            messageAge = currentTime - originalDate
-            if messageAge > datetime.timedelta(seconds=self.max_message_age_seconds):
-                logging.warning(
-                    f"Discarding Message sent at {originalDate.isoformat()} "
-                    f"from user '{updateObject.effective_user}' "
-                    f"with text '{message.text}'"
-                )
-                return True
-        except Exception as e:
-            logging.exception(e)
+    def is_update_expired(self, updateObject, handler_name: str | None = None) -> bool:
+        """True when an update is too old to act on. Every drop is logged with why."""
+        update_id = getattr(updateObject, "update_id", None)
+        label = f"update {update_id}" if isinstance(update_id, int) else "update"
+        if handler_name:
+            label += f" ({handler_name})"
+
+        message = getattr(updateObject, "effective_message", None)
+        if message is None:
+            logging.warning(f"Discarding {label}: no message to age-check")
             return True
-        return False
+
+        try:
+            sent_at = message.date
+            if sent_at.tzinfo is None:
+                sent_at = sent_at.replace(tzinfo=datetime.timezone.utc)
+            age_seconds = (datetime.datetime.now(datetime.timezone.utc) - sent_at).total_seconds()
+        except Exception as this_ex:
+            logging.warning(f"Discarding {label}: unreadable timestamp ({this_ex!r})")
+            return True
+
+        if age_seconds <= self.max_message_age_seconds:
+            return False
+
+        chat = getattr(updateObject, "effective_chat", None)
+        user = getattr(updateObject, "effective_user", None)
+        chat_id = getattr(chat, "id", None)
+        user_id = getattr(user, "id", None)
+        logging.warning(
+            "Discarding expired %s | chat %s | user %s (@%s) | age %.0fs > %ss | sent %s | text %r",
+            label,
+            chat_id if isinstance(chat_id, int) else "?",
+            user_id if isinstance(user_id, int) else "?",
+            getattr(user, "username", None),
+            age_seconds,
+            self.max_message_age_seconds,
+            sent_at.isoformat(),
+            (message.text or "")[:200],
+        )
+        return True
