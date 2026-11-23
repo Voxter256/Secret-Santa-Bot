@@ -124,7 +124,13 @@ class SantaBot:
                 reply_markup=reply_markup,
                 link_preview_options=link_preview_options,
             )
-            logging.info("Sent Message %r with ID %s to Chat %s", text, sent_message.message_id, chat_id)
+            logging.info(
+                "Sent Message | id %s | chat %s | %s chars",
+                sent_message.message_id,
+                chat_id,
+                len(text or ""),
+            )
+            logging.debug("Sent Message body %r", text)
             return
 
     @staticmethod
@@ -132,11 +138,12 @@ class SantaBot:
         if update and text:
             sent_message = await update.effective_message.reply_text(text)
             logging.info(
-                "Sent Reply %r with ID %s to Chat %s",
-                text,
+                "Sent Reply | id %s | chat %s | %s chars",
                 sent_message.message_id,
                 update.effective_chat.id,
+                len(text or ""),
             )
+            logging.debug("Sent Reply body %r", text)
 
     @rejects_stale_updates
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -269,8 +276,12 @@ class SantaBot:
     async def address(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             logging.info(
-                "address | Telegram ID: %s | Telegram Name: %r | Text: %r",
+                "address | Telegram ID: %s | %s chars",
                 update.effective_user.id,
+                len(update.effective_message.text or ""),
+            )
+            logging.debug(
+                "address | Telegram Name: %r | Text: %r",
                 update.effective_user.name,
                 update.effective_message.text,
             )

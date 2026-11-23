@@ -938,12 +938,22 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         context = Mock()
         context.bot.send_message = AsyncMock(return_value=Mock(message_id=1))
         forged = "hello\n2026-11-23 04:00:00,000 INFO Sent Message fake delivery"
-        with self.assertLogs(level="INFO") as captured:
+        with self.assertLogs(level="DEBUG") as captured:
             await SantaBot.send_message(context=context, chat_id=1, text=forged)
-        line = captured.output[0]
-        self.assertNotIn("\n", line.rstrip("\n"))
-        self.assertIn("\\n", line)
-        self.assertIn("Sent Message", line)
+        body_lines = [line for line in captured.output if "Sent Message body" in line]
+        self.assertEqual(len(body_lines), 1)
+        self.assertIn("\\n", body_lines[0])
+        self.assertNotIn("\n", body_lines[0].rstrip("\n"))
+
+    async def test_message_body_is_absent_from_the_info_log(self):
+        context = Mock()
+        context.bot.send_message = AsyncMock(return_value=Mock(message_id=1))
+        with self.assertLogs(level="INFO") as captured:
+            await SantaBot.send_message(context=context, chat_id=1, text="a wizard hat")
+        joined = "\n".join(captured.output)
+        self.assertNotIn("wizard hat", joined)
+        self.assertIn("Sent Message", joined)
+        self.assertIn("chars", joined)
 
     async def test_display_name_cannot_forge_a_log_line(self):
         await self._setup_participant()
