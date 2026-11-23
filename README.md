@@ -19,7 +19,7 @@ Christmas can be stressful if you have to find gifts for everyone all within you
 
 ## Installation
 
-Requires Python 3.9+ and [uv](https://docs.astral.sh/uv/).
+Requires Python 3.10+ (PEP 604 annotations are evaluated at class-definition time) and [uv](https://docs.astral.sh/uv/).
 
     uv sync
     export TELEGRAM_BOT_TOKEN="<token from @BotFather>"
