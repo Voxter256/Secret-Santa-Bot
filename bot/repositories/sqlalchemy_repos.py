@@ -54,6 +54,23 @@ class SqlGroupRepository:
         self._session.commit()
         return g
 
+    def _set(self, chat_id: int, **values: object) -> None:
+        group = self.get_by_telegram_id(chat_id)
+        if group is None:
+            return
+        for field, value in values.items():
+            setattr(group, field, value)
+        self._session.commit()
+
+    def set_requires_address(self, chat_id: int, value: bool) -> None:
+        self._set(chat_id, requires_address=value)
+
+    def set_wishlist_enabled(self, chat_id: int, value: bool) -> None:
+        self._set(chat_id, wishlist_enabled=value)
+
+    def set_title(self, chat_id: int, title: str) -> None:
+        self._set(chat_id, title=title)
+
 
 class SqlLinkRepository:
     """SQLAlchemy implementation of LinkRepository."""

@@ -207,3 +207,33 @@ class TestExchangeService(unittest.TestCase):
         eid = ExchangeService.format_exception_id()
         self.assertIsInstance(eid, str)
         self.assertEqual(len(eid.split("-")), 5)
+
+    # ── Group options ──────────────────────────────────────────────────
+
+    def test_group_options_defaults_when_group_missing(self):
+        self.groups.get_by_telegram_id.return_value = None
+        self.assertEqual(
+            self.service.group_options(1),
+            {"requires_address": False, "wishlist_enabled": False},
+        )
+
+    def test_group_options_reads_flags(self):
+        self.groups.get_by_telegram_id.return_value = MagicMock(requires_address=True, wishlist_enabled=False)
+        self.assertEqual(
+            self.service.group_options(1),
+            {"requires_address": True, "wishlist_enabled": False},
+        )
+
+    def test_set_group_option_updates_only_the_given_flag(self):
+        self.service.set_group_option(1, requires_address=True)
+        self.groups.set_requires_address.assert_called_once_with(1, True)
+        self.groups.set_wishlist_enabled.assert_not_called()
+
+    def test_set_group_option_updates_wishlist(self):
+        self.service.set_group_option(1, wishlist_enabled=False)
+        self.groups.set_wishlist_enabled.assert_called_once_with(1, False)
+        self.groups.set_requires_address.assert_not_called()
+
+    def test_set_group_title_delegates(self):
+        self.service.set_group_title(1, "Office Exchange")
+        self.groups.set_title.assert_called_once_with(1, "Office Exchange")

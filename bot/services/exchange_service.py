@@ -58,6 +58,30 @@ class ExchangeService:
     def get_group(self, chat_id: int):
         return self._groups.get_by_telegram_id(chat_id)
 
+    def set_group_option(
+        self,
+        chat_id: int,
+        *,
+        requires_address: bool | None = None,
+        wishlist_enabled: bool | None = None,
+    ) -> None:
+        if requires_address is not None:
+            self._groups.set_requires_address(chat_id, requires_address)
+        if wishlist_enabled is not None:
+            self._groups.set_wishlist_enabled(chat_id, wishlist_enabled)
+
+    def set_group_title(self, chat_id: int, title: str) -> None:
+        self._groups.set_title(chat_id, title)
+
+    def group_options(self, chat_id: int) -> dict[str, bool]:
+        group = self._groups.get_by_telegram_id(chat_id)
+        if group is None:
+            return {"requires_address": False, "wishlist_enabled": False}
+        return {
+            "requires_address": bool(group.requires_address),
+            "wishlist_enabled": bool(group.wishlist_enabled),
+        }
+
     # ── Join / Leave ───────────────────────────────────────────────────
 
     def join_group(self, participant_id: int, chat_id: int, username: str) -> str:

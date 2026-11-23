@@ -59,6 +59,58 @@ class TestSchemaFromMigrations(MigratedDatabaseTestCase):
             revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
         self.assertEqual(revision, head)
 
+    def test_new_groups_opt_out_by_default(self) -> None:
+        group = Group(telegram_id=123)
+        self.bot.session.add(group)
+        self.bot.session.commit()
+        self.assertFalse(group.requires_address)
+        self.assertFalse(group.wishlist_enabled)
+
+
+class TestGroupOptionsMigration(unittest.TestCase):
+    """The backfill keeps existing groups delivering addresses; new groups opt in."""
+
+    def setUp(self) -> None:
+        self.db = DBConnection("sqlite://")
+
+    def tearDown(self) -> None:
+        self.db.session.close()
+        self.db.engine.dispose()
+
+    @staticmethod
+    def _upgrade(connection, revision: str = "head") -> None:
+        run_migrations("sqlite://", connection=connection, revision=revision)
+
+    @staticmethod
+    def _insert_group(connection, telegram_id: int) -> None:
+        connection.execute(text(f"INSERT INTO groups (telegram_id) VALUES ({telegram_id})"))  # noqa: S608
+
+    @staticmethod
+    def _value(connection, column: str, telegram_id: int):
+        return connection.execute(
+            text(f"SELECT {column} FROM groups WHERE telegram_id = {telegram_id}")  # noqa: S608
+        ).scalar_one()
+
+    def test_existing_group_is_backfilled_to_require_address(self) -> None:
+        with self.db.engine.connect() as connection:
+            self._upgrade(connection, "60e6fe52a838")
+            self._insert_group(connection, 1)
+            self._upgrade(connection)
+            self.assertEqual(self._value(connection, "requires_address", 1), 1)
+
+    def test_group_created_after_migration_opts_out(self) -> None:
+        with self.db.engine.connect() as connection:
+            self._upgrade(connection)
+            self._insert_group(connection, 2)
+            self.assertEqual(self._value(connection, "requires_address", 2), 0)
+
+    def test_wishlist_stays_off_for_existing_groups(self) -> None:
+        with self.db.engine.connect() as connection:
+            self._upgrade(connection, "60e6fe52a838")
+            self._insert_group(connection, 3)
+            self._upgrade(connection)
+            self.assertEqual(self._value(connection, "wishlist_enabled", 3), 0)
+
 
 class TestSantaBot(MigratedDatabaseTestCase):
     @patch.object(SantaBot, "reply_message")
@@ -252,17 +304,96 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
     @patch.object(SantaBot, "is_update_expired")
-    async def test_join_no_address(self, mock_expired, mock_send, mock_reply):
+    async def test_join_without_address(self, mock_expired, mock_send, mock_reply):
         mock_expired.return_value = False
         p = Participant(telegram_id=10, telegram_username="TestUser", address=None)
         self.bot.session.add(p)
         self.bot.session.commit()
+        self.bot.exchange.find_or_create_group(1)
         update = self._make_update_mock()
+        await self.bot.join(update, Mock())
+        mock_reply.assert_called_with(update=update, text="OK, you're in!")
+        mock_send.assert_not_called()
+        self.assertEqual(self.bot.session.query(Link).count(), 1)
+
+    @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "send_message")
+    @patch.object(SantaBot, "is_update_expired")
+    async def test_start_new_participant_does_not_prompt_for_address(self, mock_expired, mock_send, mock_reply):
+        mock_expired.return_value = False
+        update = self._make_update_mock(chat_type="private")
+        await self.bot.start(update, Mock())
+        texts = [call.kwargs["text"] for call in mock_send.call_args_list]
+        self.assertEqual(texts[0], "Hello! Lets get you setup!")
+        self.assertIn("/address", texts[1])
+        self.assertNotIn("What is your address", texts[1])
+        for call in mock_send.call_args_list:
+            self.assertNotIn("reply_markup", call.kwargs)
+
+    @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "send_message")
+    @patch.object(SantaBot, "is_update_expired")
+    async def test_start_without_address_sends_hint_only(self, mock_expired, mock_send, mock_reply):
+        mock_expired.return_value = False
+        p = Participant(telegram_id=10, telegram_username="TestUser", address=None)
+        self.bot.session.add(p)
+        self.bot.session.commit()
+        update = self._make_update_mock(chat_type="private")
+        await self.bot.start(update, Mock())
+        texts = [call.kwargs["text"] for call in mock_send.call_args_list]
+        self.assertEqual(texts, ["Use /address to share a mailing address, or /wish for wishlists."])
+
+    @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "send_message")
+    @patch.object(SantaBot, "is_update_expired")
+    async def test_start_with_address_echoes_it(self, mock_expired, mock_send, mock_reply):
+        mock_expired.return_value = False
+        p = Participant(telegram_id=10, telegram_username="TestUser", address="123 Main St")
+        self.bot.session.add(p)
+        self.bot.session.commit()
+        update = self._make_update_mock(chat_type="private")
+        await self.bot.start(update, Mock())
+        texts = [call.kwargs["text"] for call in mock_send.call_args_list]
+        self.assertEqual(len(texts), 1)
+        self.assertIn("123 Main St", texts[0])
+        self.assertIn("/address", texts[0])
+
+    @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "is_update_expired")
+    async def test_address_reply_saves_when_awaiting(self, mock_expired, mock_reply):
+        mock_expired.return_value = False
+        p = Participant(telegram_id=10, telegram_username="TestUser")
+        self.bot.session.add(p)
+        self.bot.session.commit()
+        self.bot.bot_id = 999
+        update = self._make_update_mock(chat_type="private")
+        update.effective_message.text = "42 Galaxy Way"
+        update.effective_message.reply_to_message = MagicMock()
+        update.effective_message.reply_to_message.from_user.id = 999
         context = Mock()
-        await self.bot.join(update, context)
-        mock_reply.assert_called_with(
-            update=update, text="I need your address first! I am sending you a private message now."
-        )
+        context.user_data = {"awaiting_address": True}
+        await self.bot.address(update, context)
+        self.bot.session.refresh(p)
+        self.assertEqual(p.address, "42 Galaxy Way")
+        self.assertNotIn("awaiting_address", context.user_data)
+
+    @patch.object(SantaBot, "reply_message")
+    @patch.object(SantaBot, "is_update_expired")
+    async def test_address_reply_ignored_without_pending_prompt(self, mock_expired, mock_reply):
+        mock_expired.return_value = False
+        p = Participant(telegram_id=10, telegram_username="TestUser")
+        self.bot.session.add(p)
+        self.bot.session.commit()
+        self.bot.bot_id = 999
+        update = self._make_update_mock(chat_type="private")
+        update.effective_message.text = "42 Galaxy Way"
+        update.effective_message.reply_to_message = MagicMock()
+        update.effective_message.reply_to_message.from_user.id = 999
+        context = Mock()
+        context.user_data = {}
+        await self.bot.address(update, context)
+        self.bot.session.refresh(p)
+        self.assertIsNone(p.address)
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
@@ -613,7 +744,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         link.santa = Participant(telegram_id=10)
         link.receiver = None
 
-        delivered, reason = await SantaBot.send_individual_result(link, self._delivery_update(), Mock(), MagicMock())
+        delivered, reason = await self.bot.send_individual_result(link, self._delivery_update(), Mock(), MagicMock())
 
         self.assertFalse(delivered)
         self.assertEqual(reason, "missing participant")
@@ -627,12 +758,31 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
             new_callable=AsyncMock,
             side_effect=BadRequest("Chat not found"),
         ):
-            delivered, reason = await SantaBot.send_individual_result(
+            delivered, reason = await self.bot.send_individual_result(
                 link, self._delivery_update(), Mock(), MagicMock()
             )
 
         self.assertFalse(delivered)
         self.assertIn("Chat not found", reason)
+
+    def test_result_message_omits_address_when_not_required(self):
+        receiver = Participant(telegram_id=20, telegram_username="Receiver", address="Somewhere")
+        chat = MagicMock(title="Test Group")
+        text = SantaBot.generate_result_message(chat, receiver, "Receiver", lambda s: s, requires_address=False)
+        self.assertNotIn("address", text.lower())
+        self.assertNotIn("Somewhere", text)
+
+    def test_result_message_includes_address_when_required(self):
+        receiver = Participant(telegram_id=20, telegram_username="Receiver", address="Somewhere")
+        chat = MagicMock(title="Test Group")
+        text = SantaBot.generate_result_message(chat, receiver, "Receiver", lambda s: s, requires_address=True)
+        self.assertIn("Somewhere", text)
+
+    def test_result_message_uses_placeholder_for_missing_address(self):
+        receiver = Participant(telegram_id=20, telegram_username="Receiver", address=None)
+        chat = MagicMock(title="Test Group")
+        text = SantaBot.generate_result_message(chat, receiver, "Receiver", lambda s: s, requires_address=True)
+        self.assertIn("?", text)
 
     def test_describe_participant_falls_back_to_telegram_id(self):
         self.assertEqual(SantaBot.describe_participant(Participant(telegram_id=42)), "42")

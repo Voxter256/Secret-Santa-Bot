@@ -212,3 +212,6 @@ Thumbs.db
 # CodeGraph local data
 .codegraph/
 codegraph/
+
+# Hermes agent artifacts (plans, scratch)
+.hermes/

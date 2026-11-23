@@ -115,6 +115,7 @@ class SantaBot:
             user_username = update.effective_user.username
 
             this_participant = self.exchange.get_participant(user_id)
+            address_hint = _("Use /address to share a mailing address, or /wish for wishlists.")  # noqa: E501
             if this_participant is None:
                 logging.info(f"Start | New Participant | ID: {user_id} Username: {user_username}")
                 this_participant = self.exchange.find_or_create_participant(user_id, user_username)
@@ -124,29 +125,14 @@ class SantaBot:
                     chat_id=this_participant.telegram_id,
                     text=message,
                 )
-                message = _("What is your address? (Reply to this message to change it)")  # noqa: E501
-                await self.send_message(
-                    context=context,
-                    chat_id=this_participant.telegram_id,
-                    text=message,
-                    reply_markup=ForceReply(),
-                )
-            elif this_participant.address is None:
-                message = _("What is your address? (Reply to this message to change it)")  # noqa: E501
-                await self.send_message(
-                    context=context,
-                    chat_id=this_participant.telegram_id,
-                    text=message,
-                    reply_markup=ForceReply(),
-                )
-            else:
+            elif this_participant.address is not None:
                 already_setup = _("You are already set up. I have your address as:") + "\n"  # noqa: E501
-                message = already_setup + this_participant.address
-                await self.send_message(
-                    context=context,
-                    chat_id=this_participant.telegram_id,
-                    text=message,
-                )
+                address_hint = already_setup + this_participant.address + "\n" + address_hint
+            await self.send_message(
+                context=context,
+                chat_id=this_participant.telegram_id,
+                text=address_hint,
+            )
             logging.info(f"start | This Participant ID: {this_participant.id}")
         except Exception as this_ex:
             logging.exception(this_ex)
@@ -224,6 +210,7 @@ class SantaBot:
                     text=message,
                 )
                 message = _("What is your address? (Reply to this message to change it)")  # noqa: E501
+                context.user_data["awaiting_address"] = True
                 await self.send_message(
                     context=context,
                     chat_id=this_participant.telegram_id,
@@ -244,15 +231,12 @@ class SantaBot:
             _ = self.gettext_translation(update.effective_user)
             new_address = update.effective_message.text
             original_user = update.effective_message.reply_to_message.from_user
-            original_text = update.effective_message.reply_to_message.text
 
-            if (
-                original_user.id == self.bot_id
-                and original_text == _("What is your address? (Reply to this message to change it)")  # noqa: E501
-            ):
+            if original_user.id == self.bot_id and context.user_data.get("awaiting_address"):
                 this_user = self.exchange.get_participant(update.effective_user.id)
                 if this_user is not None:
                     self.exchange.update_address(this_user.id, new_address)
+                    context.user_data.pop("awaiting_address", None)
 
                 message = (
                     _("OK, I have added your address as: ")
@@ -320,18 +304,6 @@ class SantaBot:
                     command="/start"
                 )  # noqa: E501
                 await self.reply_message(update=update, text=message)
-                return
-
-            if this_participant.address is None:
-                message = _("I need your address first! I am sending you a private message now.")  # noqa: E501
-                await self.reply_message(update=update, text=message)
-                message = _("What is your address? (Reply to this message to change it)")  # noqa: E501
-                await self.send_message(
-                    context=context,
-                    chat_id=this_participant.telegram_id,
-                    text=message,
-                    reply_markup=ForceReply(),
-                )
                 return
 
             result = self.exchange.join_group(this_participant.id, chat_id, user_username)
@@ -626,8 +598,7 @@ class SantaBot:
             return f"@{participant.telegram_username}"
         return str(participant.telegram_id)
 
-    @staticmethod
-    async def send_individual_result(link, update, context, _) -> tuple[bool, str]:
+    async def send_individual_result(self, link, update, context, _) -> tuple[bool, str]:
         telegram_chat = update.effective_chat
         santa = link.santa
         receiver = link.receiver
@@ -635,7 +606,14 @@ class SantaBot:
             return False, "missing participant"
         try:
             receiver_user = (await telegram_chat.get_member(user_id=int(receiver.telegram_id))).user
-            message = SantaBot.generate_result_message(telegram_chat, receiver, receiver_user.name, _)
+            options = self.exchange.group_options(telegram_chat.id)
+            message = self.generate_result_message(
+                telegram_chat,
+                receiver,
+                receiver_user.name,
+                _,
+                requires_address=options["requires_address"],
+            )
             await SantaBot.send_message(context=context, chat_id=santa.telegram_id, text=message)
             return True, ""
         except (Forbidden, BadRequest) as this_ex:
@@ -648,16 +626,23 @@ class SantaBot:
             return False, f"{this_ex} ({exception_id})"
 
     @staticmethod
-    def generate_result_message(telegram_chat: Chat, receiver: Participant, receiver_name: str, _) -> str:
+    def generate_result_message(
+        telegram_chat: Chat,
+        receiver: Participant,
+        receiver_name: str,
+        _,
+        *,
+        requires_address: bool,
+    ) -> str:
         chat_title = str(telegram_chat.title)
 
         you_got = _("You got {username}!").format(username=receiver_name)
-        youGotUsername = f"{chat_title}| {you_got}"
+        message = f"{chat_title}| {you_got}"
 
-        receiverAddress = receiver.address if receiver.address else "?"
-        their_address_is = _("Their address is: {address}.").format(address=receiverAddress)
-
-        message = f"{youGotUsername} {their_address_is}"
+        if requires_address:
+            receiver_address = receiver.address if receiver.address else "?"
+            their_address_is = _("Their address is: {address}.").format(address=receiver_address)
+            message = f"{message} {their_address_is}"
         return message
 
     @rejects_stale_updates
