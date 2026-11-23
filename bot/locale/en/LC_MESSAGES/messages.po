@@ -51,20 +51,20 @@ msgid "Sent only in a group chat to enable the gift exchange."
 msgstr "Sent only in a group chat to enable the gift exchange."
 
 #: bot/SantaBot.py:199
-#, fuzzy
 msgid ""
 "Sent only in a group chat by an admin to choose what this exchange "
 "requires."
-msgstr "Sent only in a group chat to enable the gift exchange."
+msgstr ""
+"Sent only in a group chat by an admin to choose what this exchange "
+"requires."
 
 #: bot/SantaBot.py:202
 msgid "Sent only in a private message to show and update your address."
 msgstr "Sent only in a private message to show and update your address."
 
 #: bot/SantaBot.py:205
-#, fuzzy
 msgid "Sent only in a private message to edit your wishlist for an exchange."
-msgstr "Sent only in a private message to show and update your address."
+msgstr "Sent only in a private message to edit your wishlist for an exchange."
 
 #: bot/SantaBot.py:208
 msgid "Joins you in the gift exchange in this chat."
@@ -190,9 +190,8 @@ msgid "Share this list"
 msgstr ""
 
 #: bot/SantaBot.py:493
-#, fuzzy
 msgid "Send me the item to add. (Reply to this message.)"
-msgstr "What is your address? (Reply to this message to change it)"
+msgstr "Send me the item to add. (Reply to this message.)"
 
 #: bot/SantaBot.py:521
 msgid "Added."
