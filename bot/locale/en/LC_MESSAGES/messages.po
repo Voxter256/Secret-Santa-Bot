@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version:  1\n"
 "Report-Msgid-Bugs-To: Voxter.256@gmail.com\n"
-"POT-Creation-Date: 2026-11-23 00:20-0500\n"
+"POT-Creation-Date: 2026-11-23 05:56+0000\n"
 "PO-Revision-Date: 2020-11-14 21:19-0500\n"
 "Last-Translator: John Elgin <Voxter.256@gmail.com>\n"
 "Language: en\n"
@@ -18,39 +18,39 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: bot/SantaBot.py:154 bot/SantaBot.py:240 bot/SantaBot.py:405
+#: bot/SantaBot.py:164 bot/SantaBot.py:253 bot/SantaBot.py:417
 msgid "You must send me this in a private chat"
 msgstr "You must send me this in a private chat"
 
-#: bot/SantaBot.py:161
+#: bot/SantaBot.py:171
 msgid "Use /address to share a mailing address, or /wish for wishlists."
 msgstr ""
 
-#: bot/SantaBot.py:165
+#: bot/SantaBot.py:175
 msgid "Hello! Lets get you setup!"
 msgstr "Hello! Lets get you setup!"
 
-#: bot/SantaBot.py:172
+#: bot/SantaBot.py:182
 msgid "You are already set up. I have your address as:"
 msgstr "You are already set up. I have your address as:"
 
-#: bot/SantaBot.py:187
+#: bot/SantaBot.py:197
 msgid "Command List:"
 msgstr "Command List:"
 
-#: bot/SantaBot.py:190
+#: bot/SantaBot.py:200
 msgid "Shows this list of commands."
 msgstr ""
 
-#: bot/SantaBot.py:193
+#: bot/SantaBot.py:203
 msgid "Sent only in a private message to begin personal setup."
 msgstr "Sent only in a private message to begin personal setup."
 
-#: bot/SantaBot.py:196
+#: bot/SantaBot.py:206
 msgid "Sent only in a group chat to enable the gift exchange."
 msgstr "Sent only in a group chat to enable the gift exchange."
 
-#: bot/SantaBot.py:199
+#: bot/SantaBot.py:209
 msgid ""
 "Sent only in a group chat by an admin to choose what this exchange "
 "requires."
@@ -58,80 +58,85 @@ msgstr ""
 "Sent only in a group chat by an admin to choose what this exchange "
 "requires."
 
-#: bot/SantaBot.py:202
+#: bot/SantaBot.py:212
 msgid "Sent only in a private message to show and update your address."
 msgstr "Sent only in a private message to show and update your address."
 
-#: bot/SantaBot.py:205
+#: bot/SantaBot.py:215
 msgid "Sent only in a private message to edit your wishlist for an exchange."
 msgstr "Sent only in a private message to edit your wishlist for an exchange."
 
-#: bot/SantaBot.py:208
+#: bot/SantaBot.py:218
 msgid "Joins you in the gift exchange in this chat."
 msgstr "Joins you in the gift exchange in this chat."
 
-#: bot/SantaBot.py:211
+#: bot/SantaBot.py:221
 msgid "Gets the status of this chat's exchange."
 msgstr "Gets the status of this chat's exchange."
 
-#: bot/SantaBot.py:214
+#: bot/SantaBot.py:224
 msgid "Prevents you from being paired up with this participant."
 msgstr "Prevents you from being paired up with this participant."
 
-#: bot/SantaBot.py:217
+#: bot/SantaBot.py:227
 msgid ""
 "Removes block that was preventing you from being paired up with this "
 "participant."
 msgstr ""
 
-#: bot/SantaBot.py:220
+#: bot/SantaBot.py:230
 msgid "You will leave the gift exchange in this chat."
 msgstr "You will leave the gift exchange in this chat."
 
-#: bot/SantaBot.py:224
+#: bot/SantaBot.py:234
 msgid ""
 "Begins the gift exchange by assigning a recipient to every participant, "
 "then messaging them privately the details."
 msgstr ""
 
-#: bot/SantaBot.py:229
+#: bot/SantaBot.py:239
 msgid ""
 "Resets the gift exchange by removing every participant's assigned "
 "recipient."
 msgstr ""
 
-#: bot/SantaBot.py:248 bot/SantaBot.py:410 bot/SantaBot.py:666
+#: bot/SantaBot.py:242
+msgid "Sends a problem report or suggestion about the bot."
+msgstr ""
+
+#: bot/SantaBot.py:261 bot/SantaBot.py:422 bot/SantaBot.py:678
 #, python-brace-format
 msgid "Send me a {command} in a private message, then follow the instructions!"
 msgstr "Send me a {command} in a private message, then follow the instructions!"
 
-#: bot/SantaBot.py:255
+#: bot/SantaBot.py:268
 #, python-brace-format
 msgid "I currently have your address as {address}"
 msgstr "I currently have your address as {address}"
 
-#: bot/SantaBot.py:257
+#: bot/SantaBot.py:270
 msgid "If that is correct, you can ignore the following message."
 msgstr "If that is correct, you can ignore the following message."
 
-#: bot/SantaBot.py:264
+#: bot/SantaBot.py:277
 msgid "What is your address? (Reply to this message to change it)"
 msgstr "What is your address? (Reply to this message to change it)"
 
-#: bot/SantaBot.py:299
-msgid "OK, I have added your address as: "
+#: bot/SantaBot.py:312
+#, fuzzy, python-brace-format
+msgid "OK, I have added your address as {address}."
 msgstr "OK, I have added your address as: "
 
-#: bot/SantaBot.py:302
+#: bot/SantaBot.py:314
 #, python-brace-format
 msgid "You can now to use {command} in any Telegram Secret Santa group!"
 msgstr ""
 
-#: bot/SantaBot.py:306
+#: bot/SantaBot.py:318
 msgid "A Telegram Secret Santa group only needs to be activated once."
 msgstr "A Telegram Secret Santa group only needs to be activated once."
 
-#: bot/SantaBot.py:309
+#: bot/SantaBot.py:321
 #, python-brace-format
 msgid ""
 "To do so, I must be a member of a telegram group and someone needs to "
@@ -140,265 +145,288 @@ msgstr ""
 "To do so, I must be a member of a telegram group and someone needs to "
 "activate me with the command {command}"
 
-#: bot/SantaBot.py:323
+#: bot/SantaBot.py:335
 msgid "Unknown exchange"
 msgstr ""
 
-#: bot/SantaBot.py:330 bot/SantaBot.py:335
+#: bot/SantaBot.py:342 bot/SantaBot.py:347
 #, python-brace-format
 msgid "Exchange {id}"
 msgstr ""
 
-#: bot/SantaBot.py:389
+#: bot/SantaBot.py:401
 msgid "Wishlist:"
 msgstr ""
 
-#: bot/SantaBot.py:419
+#: bot/SantaBot.py:431
 msgid ""
 "You have not joined an exchange yet. Ask someone to run /hello in a "
 "group, then use /join there."
 msgstr ""
 
-#: bot/SantaBot.py:439
+#: bot/SantaBot.py:451
 msgid "Which exchange do you want to edit?"
 msgstr ""
 
-#: bot/SantaBot.py:450
+#: bot/SantaBot.py:462
 #, python-brace-format
 msgid "Your wishlist for {group}:"
 msgstr ""
 
-#: bot/SantaBot.py:452
+#: bot/SantaBot.py:464
 #, python-brace-format
 msgid "Your wishlist for {group} is empty."
 msgstr ""
 
-#: bot/SantaBot.py:454
+#: bot/SantaBot.py:466
 msgid "Add an item"
 msgstr ""
 
-#: bot/SantaBot.py:456
+#: bot/SantaBot.py:468
 msgid "Remove last"
 msgstr ""
 
-#: bot/SantaBot.py:457
+#: bot/SantaBot.py:469
 msgid "Clear"
 msgstr ""
 
-#: bot/SantaBot.py:459
+#: bot/SantaBot.py:471
 msgid "Share this list"
 msgstr ""
 
-#: bot/SantaBot.py:493
+#: bot/SantaBot.py:505
 msgid "Send me the item to add. (Reply to this message.)"
 msgstr "Send me the item to add. (Reply to this message.)"
 
-#: bot/SantaBot.py:521
+#: bot/SantaBot.py:533
 msgid "Added."
 msgstr ""
 
-#: bot/SantaBot.py:522
+#: bot/SantaBot.py:534
 msgid "That was empty. Send the item again."
 msgstr ""
 
-#: bot/SantaBot.py:523
+#: bot/SantaBot.py:535
 #, python-brace-format
 msgid "That is too long. Keep each item under {limit} characters."
 msgstr ""
 
-#: bot/SantaBot.py:526
+#: bot/SantaBot.py:538
 msgid "That would make your wishlist too long to send in one message."
 msgstr ""
 
-#: bot/SantaBot.py:527
+#: bot/SantaBot.py:539
 #, python-brace-format
 msgid "Your wishlist is full at {limit} items."
 msgstr ""
 
-#: bot/SantaBot.py:528
+#: bot/SantaBot.py:540
 msgid "You are not part of that exchange any more."
 msgstr ""
 
-#: bot/SantaBot.py:529
+#: bot/SantaBot.py:541
 msgid "That exchange no longer exists."
 msgstr ""
 
-#: bot/SantaBot.py:531
+#: bot/SantaBot.py:543
 msgid "That did not work. Try again."
 msgstr ""
 
-#: bot/SantaBot.py:546 bot/SantaBot.py:626 bot/SantaBot.py:660
-#: bot/SantaBot.py:786
+#: bot/SantaBot.py:558 bot/SantaBot.py:639 bot/SantaBot.py:672
+#: bot/SantaBot.py:798
 msgid "You must begin from a group chat"
 msgstr "You must begin from a group chat"
 
-#: bot/SantaBot.py:549 bot/SantaBot.py:601
+#: bot/SantaBot.py:561 bot/SantaBot.py:614
 msgid "Only group admins can change exchange settings."
 msgstr ""
 
-#: bot/SantaBot.py:575
-msgid "on"
-msgstr ""
-
-#: bot/SantaBot.py:575
-msgid "off"
-msgstr ""
-
-#: bot/SantaBot.py:582
+#: bot/SantaBot.py:595
 #, python-brace-format
 msgid "Address required: {state}"
 msgstr ""
 
-#: bot/SantaBot.py:588
+#: bot/SantaBot.py:601
 #, python-brace-format
 msgid "Wishlist: {state}"
 msgstr ""
 
-#: bot/SantaBot.py:593
+#: bot/SantaBot.py:606
 msgid "Exchange settings for this group:"
 msgstr ""
 
-#: bot/SantaBot.py:635
-msgid "Hello! "
-msgstr "Hello! "
-
-#: bot/SantaBot.py:636
+#: bot/SantaBot.py:648
 msgid ""
-"This group chat now has the options of participating in a Secret Santa "
-"Exchange!"
+"Hello! This group chat now has the options of participating in a Secret "
+"Santa Exchange!"
 msgstr ""
 
-#: bot/SantaBot.py:638
+#: bot/SantaBot.py:650
 #, python-brace-format
 msgid "{command} to participate"
 msgstr "{command} to participate"
 
-#: bot/SantaBot.py:674 bot/SantaBot.py:793
+#: bot/SantaBot.py:686 bot/SantaBot.py:805
 #, python-brace-format
 msgid "Someone must say {command} first!"
 msgstr "Someone must say {command} first!"
 
-#: bot/SantaBot.py:677
+#: bot/SantaBot.py:689
 msgid "OK, you're in!"
 msgstr "OK, you're in!"
 
-#: bot/SantaBot.py:680
+#: bot/SantaBot.py:692
 msgid "You have already joined!"
 msgstr "You have already joined!"
 
-#: bot/SantaBot.py:702
+#: bot/SantaBot.py:714
 msgid "Don't worry, you won't get yourself"
 msgstr "Don't worry, you won't get yourself"
 
-#: bot/SantaBot.py:705 bot/SantaBot.py:717
+#: bot/SantaBot.py:717 bot/SantaBot.py:729
 msgid "OK, you can no longer matched with that participant."
 msgstr "OK, you can no longer matched with that participant."
 
-#: bot/SantaBot.py:708 bot/SantaBot.py:720
+#: bot/SantaBot.py:720 bot/SantaBot.py:732
 msgid "This blocked pairing has already been added."
 msgstr "This blocked pairing has already been added."
 
-#: bot/SantaBot.py:714
+#: bot/SantaBot.py:726
 msgid "This participant needs to join first"
 msgstr "This participant needs to join first"
 
-#: bot/SantaBot.py:745 bot/SantaBot.py:754
+#: bot/SantaBot.py:757 bot/SantaBot.py:766
 #, python-brace-format
 msgid "You can now be assigned to {name}"
 msgstr "You can now be assigned to {name}"
 
-#: bot/SantaBot.py:748 bot/SantaBot.py:757
+#: bot/SantaBot.py:760 bot/SantaBot.py:769
 #, python-brace-format
 msgid "{name} was not blocked by you."
 msgstr "{name} was not blocked by you."
 
-#: bot/SantaBot.py:768 bot/SantaBot.py:771
+#: bot/SantaBot.py:780 bot/SantaBot.py:783
 msgid "You never joined"
 msgstr "You never joined"
 
-#: bot/SantaBot.py:771
+#: bot/SantaBot.py:783
 msgid "Done."
 msgstr "Done."
 
-#: bot/SantaBot.py:798
+#: bot/SantaBot.py:810
 msgid "The exchange has not begun"
 msgstr "The exchange has not begun"
 
-#: bot/SantaBot.py:803
+#: bot/SantaBot.py:815
 #, python-brace-format
 msgid ""
 "The exchange has finished, but {count} participant(s) were not messaged: "
 "{names}"
 msgstr ""
 
-#: bot/SantaBot.py:810
+#: bot/SantaBot.py:822
 #, python-brace-format
 msgid "Ask them to unblock the bot, then run {command} to resend."
 msgstr ""
 
-#: bot/SantaBot.py:814
+#: bot/SantaBot.py:826
 msgid "The exchange has finished"
 msgstr "The exchange has finished"
 
-#: bot/SantaBot.py:816
+#: bot/SantaBot.py:828
 msgid "Joined Users:"
 msgstr "Joined Users:"
 
-#: bot/SantaBot.py:856
-msgid "Cannot pair with: "
+#: bot/SantaBot.py:865
+#, fuzzy, python-brace-format
+msgid "Cannot pair with: {names}"
 msgstr "Cannot pair with: "
 
-#: bot/SantaBot.py:875
+#: bot/SantaBot.py:880
 msgid "No one has Joined!"
 msgstr "No one has Joined!"
 
-#: bot/SantaBot.py:884
+#: bot/SantaBot.py:889
 msgid "The exchange has already been setup!"
 msgstr "The exchange has already been setup!"
 
-#: bot/SantaBot.py:914
+#: bot/SantaBot.py:919
 #, python-brace-format
 msgid ""
 "These participants have no wishlist: {names}. Run /start_exchange confirm"
 " to start anyway."
 msgstr ""
 
-#: bot/SantaBot.py:927
+#: bot/SantaBot.py:932
 msgid "Matching Impossible: 0 Permutations"
 msgstr "Matching Impossible: 0 Permutations"
 
-#: bot/SantaBot.py:958
+#: bot/SantaBot.py:963
 msgid "Messages have been sent!"
 msgstr "Messages have been sent!"
 
-#: bot/SantaBot.py:964
+#: bot/SantaBot.py:969
 #, python-brace-format
 msgid ""
 "Could not message: {names}. Ask them to unblock the bot, then run "
 "{command} again."
 msgstr ""
 
-#: bot/SantaBot.py:1024
+#: bot/SantaBot.py:1029
 #, python-brace-format
 msgid "You got {username}!"
 msgstr "You got {username}!"
 
-#: bot/SantaBot.py:1029
+#: bot/SantaBot.py:1034
 #, python-brace-format
 msgid "Their address is: {address}."
 msgstr "Their address is: {address}."
 
-#: bot/SantaBot.py:1034
+#: bot/SantaBot.py:1039
 msgid "Their wishlist:"
 msgstr ""
 
-#: bot/SantaBot.py:1041
+#: bot/SantaBot.py:1046
 msgid "All pairings have been reset"
 msgstr "All pairings have been reset"
+
+#: bot/SantaBot.py:1242
+msgid ""
+"Send feedback with /feedback <message>. For example: /feedback the "
+"exchange finished but I never got my partner."
+msgstr ""
+
+#: bot/SantaBot.py:1250
+#, python-brace-format
+msgid "That is too long. Please keep feedback under {max} characters."
+msgstr ""
+
+#: bot/SantaBot.py:1262
+msgid "Sorry, I could not save that. Please try again."
+msgstr ""
+
+#: bot/SantaBot.py:1280
+msgid "Thanks, I saved your feedback."
+msgstr ""
 
 #~ msgid "I need your address first! I am sending you a private message now."
 #~ msgstr "I need your address first! I am sending you a private message now."
 
 #~ msgid "Error: {error}. Error ID: {id}"
 #~ msgstr "Error: {error}. Error ID: {id}"
+
+#~ msgid "on"
+#~ msgstr ""
+
+#~ msgid "off"
+#~ msgstr ""
+
+#~ msgid "Hello! "
+#~ msgstr "Hello! "
+
+#~ msgid ""
+#~ "This group chat now has the "
+#~ "options of participating in a Secret "
+#~ "Santa Exchange!"
+#~ msgstr ""
 
