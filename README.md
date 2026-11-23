@@ -25,6 +25,13 @@ Requires Python 3.9+ and [uv](https://docs.astral.sh/uv/).
     export TELEGRAM_BOT_TOKEN="<token from @BotFather>"
     uv run python run.py
 
+Or keep the settings in a file instead of the shell:
+
+    uv sync
+    uv run --env-file .env python run.py
+
+`uv run` reads a `.env` in the project directory by default, so the flag is only needed to point at a different file; `--no-env-file` turns it off entirely.
+
 The first run creates `bot.sqlite` when it is missing and applies the Alembic migrations before the bot starts, so an existing database is upgraded rather than rejected.
 
 ### Configuration
