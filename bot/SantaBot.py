@@ -124,14 +124,19 @@ class SantaBot:
                 reply_markup=reply_markup,
                 link_preview_options=link_preview_options,
             )
-            logging.info(f"Sent Message {text} with ID {sent_message.message_id} to Chat {chat_id}")
+            logging.info("Sent Message %r with ID %s to Chat %s", text, sent_message.message_id, chat_id)
             return
 
     @staticmethod
     async def reply_message(update=None, text=None):
         if update and text:
             sent_message = await update.effective_message.reply_text(text)
-            logging.info(f"Sent Reply {text} with ID {sent_message.message_id} to Chat {update.effective_chat.id}")
+            logging.info(
+                "Sent Reply %r with ID %s to Chat %s",
+                text,
+                sent_message.message_id,
+                update.effective_chat.id,
+            )
 
     @rejects_stale_updates
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -148,7 +153,7 @@ class SantaBot:
             this_participant = self.exchange.get_participant(user_id)
             address_hint = _("Use /address to share a mailing address, or /wish for wishlists.")  # noqa: E501
             if this_participant is None:
-                logging.info(f"Start | New Participant | ID: {user_id} Username: {user_username}")
+                logging.info("Start | New Participant | ID: %s Username: %r", user_id, user_username)
                 this_participant = self.exchange.find_or_create_participant(user_id, user_username)
                 message = _("Hello! Lets get you setup!")
                 await self.send_message(
@@ -264,9 +269,10 @@ class SantaBot:
     async def address(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             logging.info(
-                f"address | Telegram ID: {update.effective_user.id} "
-                f"Telegram Name: {update.effective_user.name} "
-                f"Text: {update.effective_message.text}"
+                "address | Telegram ID: %s | Telegram Name: %r | Text: %r",
+                update.effective_user.id,
+                update.effective_user.name,
+                update.effective_message.text,
             )
             _ = self.gettext_translation(update.effective_user)
             new_address = update.effective_message.text
@@ -668,7 +674,7 @@ class SantaBot:
     @rejects_stale_updates
     async def not_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            logging.info(f"{update.effective_user.name}: not")
+            logging.info("%r: not", update.effective_user.name)
             _ = self.gettext_translation(update.effective_user)
             user_id = update.effective_user.id
             p = self.exchange.get_participant(user_id)
@@ -710,7 +716,7 @@ class SantaBot:
         try:
             _ = self.gettext_translation(update.effective_user)
 
-            logging.info(f"allow | request: {update.effective_message.text}")
+            logging.info("allow | request: %r", update.effective_message.text)
             p = self.exchange.get_participant(update.effective_user.id)
             if p is None:
                 return

@@ -932,6 +932,29 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         await self.bot.bot_membership_changed(update, Mock())
         self.assertFalse(self.bot.exchange.group_is_orphaned(1))
 
+    # -- log injection guards --
+
+    async def test_message_body_cannot_forge_a_log_line(self):
+        context = Mock()
+        context.bot.send_message = AsyncMock(return_value=Mock(message_id=1))
+        forged = "hello\n2026-11-23 04:00:00,000 INFO Sent Message fake delivery"
+        with self.assertLogs(level="INFO") as captured:
+            await SantaBot.send_message(context=context, chat_id=1, text=forged)
+        line = captured.output[0]
+        self.assertNotIn("\n", line.rstrip("\n"))
+        self.assertIn("\\n", line)
+        self.assertIn("Sent Message", line)
+
+    async def test_display_name_cannot_forge_a_log_line(self):
+        await self._setup_participant()
+        update = self._make_update_mock()
+        update.effective_user.name = "Eve\n2026-11-23 04:00:00,000 INFO Sent Message fake"
+        with self.assertLogs(level="INFO") as captured:
+            await self.bot.not_command(update, Mock())
+        first = captured.output[0].rstrip("\n")
+        self.assertNotIn("\n", first)
+        self.assertIn("\\n", captured.output[0])
+
     # -- wishlist and settings handlers --
 
     def _make_callback_update(self, data, user_id=10, chat_id=1):
