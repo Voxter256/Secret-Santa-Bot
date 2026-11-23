@@ -344,6 +344,7 @@ class SantaBot:
     @rejects_stale_updates
     async def wish_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
+            logging.info(f"wish | Chat: {update.effective_chat.id} ({update.effective_chat.type})")
             _ = self.gettext_translation(update.effective_user)
             if update.effective_chat.type != "private":
                 await self.reply_message(update=update, text=_("You must send me this in a private chat"))
@@ -479,6 +480,7 @@ class SantaBot:
     @rejects_stale_updates
     async def settings_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
+            logging.info(f"settings | Chat: {update.effective_chat.id} ({update.effective_chat.type})")
             _ = self.gettext_translation(update.effective_user)
             chat = update.effective_chat
             if chat.type == "private":
