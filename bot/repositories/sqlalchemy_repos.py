@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime
 
-from sqlalchemy import or_
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from bot.models.BlockedLink import BlockedLink
@@ -20,13 +20,13 @@ class SqlParticipantRepository:
         self._session = session
 
     def get_by_telegram_id(self, telegram_id: int) -> Participant | None:
-        return self._session.query(Participant).filter(Participant.telegram_id == telegram_id).first()
+        return self._session.scalars(select(Participant).where(Participant.telegram_id == telegram_id)).first()
 
     def get_by_id(self, participant_id: int) -> Participant | None:
-        return self._session.query(Participant).get(participant_id)
+        return self._session.get(Participant, participant_id)
 
     def get_by_username(self, username: str) -> Participant | None:
-        return self._session.query(Participant).filter(Participant.telegram_username == username).first()
+        return self._session.scalars(select(Participant).where(Participant.telegram_username == username)).first()
 
     def create(self, telegram_id: int, telegram_username: str) -> Participant:
         p = Participant(telegram_id=telegram_id, telegram_username=telegram_username)
@@ -48,7 +48,7 @@ class SqlGroupRepository:
         self._session = session
 
     def get_by_telegram_id(self, chat_id: int) -> Group | None:
-        return self._session.query(Group).filter(Group.telegram_id == chat_id).first()
+        return self._session.scalars(select(Group).where(Group.telegram_id == chat_id)).first()
 
     def create(self, telegram_id: int) -> Group:
         g = Group(telegram_id=telegram_id)
@@ -90,15 +90,15 @@ class SqlWishlistRepository:
         return item
 
     def list_for(self, group_id: int, participant_id: int) -> list[WishlistItem]:
-        return (
-            self._session.query(WishlistItem)
-            .filter(
+        stmt = (
+            select(WishlistItem)
+            .where(
                 WishlistItem.group_id == group_id,
                 WishlistItem.participant_id == participant_id,
             )
             .order_by(WishlistItem.id)
-            .all()
         )
+        return list(self._session.scalars(stmt).all())
 
     def get(self, item_id: int) -> WishlistItem | None:
         return self._session.get(WishlistItem, item_id)
@@ -108,30 +108,28 @@ class SqlWishlistRepository:
         self._session.commit()
 
     def clear(self, group_id: int, participant_id: int) -> None:
-        self._session.query(WishlistItem).filter(
-            WishlistItem.group_id == group_id,
-            WishlistItem.participant_id == participant_id,
-        ).delete()
-        self._session.commit()
-
-    def count_for(self, group_id: int, participant_id: int) -> int:
-        return (
-            self._session.query(WishlistItem)
-            .filter(
+        self._session.execute(
+            delete(WishlistItem).where(
                 WishlistItem.group_id == group_id,
                 WishlistItem.participant_id == participant_id,
             )
-            .count()
         )
+        self._session.commit()
+
+    def count_for(self, group_id: int, participant_id: int) -> int:
+        stmt = (
+            select(func.count())
+            .select_from(WishlistItem)
+            .where(
+                WishlistItem.group_id == group_id,
+                WishlistItem.participant_id == participant_id,
+            )
+        )
+        return self._session.scalar(stmt) or 0
 
     def groups_with_items(self, participant_id: int) -> list[int]:
-        rows = (
-            self._session.query(WishlistItem.group_id)
-            .filter(WishlistItem.participant_id == participant_id)
-            .distinct()
-            .all()
-        )
-        return [row[0] for row in rows]
+        stmt = select(WishlistItem.group_id).where(WishlistItem.participant_id == participant_id).distinct()
+        return list(self._session.scalars(stmt).all())
 
 
 class SqlLinkRepository:
@@ -141,28 +139,19 @@ class SqlLinkRepository:
         self._session = session
 
     def get_by_santa_and_group(self, santa_id: int, group_id: int) -> Link | None:
-        return (
-            self._session.query(Link)
-            .join(Group)
-            .filter(Group.telegram_id == group_id, Link.santa_id == santa_id)
-            .first()
-        )
+        stmt = select(Link).join(Group).where(Group.telegram_id == group_id, Link.santa_id == santa_id)
+        return self._session.scalars(stmt).first()
 
     def get_first_in_group(self, group_id: int) -> Link | None:
-        return self._session.query(Link).join(Group).filter(Group.telegram_id == group_id).first()
+        return self._session.scalars(select(Link).join(Group).where(Group.telegram_id == group_id)).first()
 
     def get_groups_by_santa(self, santa_id: int) -> list[Group]:
         """Every exchange this participant has joined, oldest first."""
-        return (
-            self._session.query(Group)
-            .join(Link, Link.group_id == Group.id)
-            .filter(Link.santa_id == santa_id)
-            .order_by(Group.id)
-            .all()
-        )
+        stmt = select(Group).join(Link, Link.group_id == Group.id).where(Link.santa_id == santa_id).order_by(Group.id)
+        return list(self._session.scalars(stmt).all())
 
     def get_links_in_group(self, group_id: int) -> list[Link]:
-        return self._session.query(Link).join(Group).filter(Group.telegram_id == group_id).all()
+        return list(self._session.scalars(select(Link).join(Group).where(Group.telegram_id == group_id)).all())
 
     def create(self, santa_id: int, group_id: int) -> Link:
         link = Link(santa_id=santa_id, group_id=group_id)
@@ -190,16 +179,16 @@ class SqlLinkRepository:
         self._session.commit()
 
     def get_pending_notifications(self, group_id: int) -> list[Link]:
-        return (
-            self._session.query(Link)
+        stmt = (
+            select(Link)
             .join(Group)
-            .filter(
+            .where(
                 Group.telegram_id == group_id,
                 Link.receiver_id.isnot(None),
                 Link.notified_at.is_(None),
             )
-            .all()
         )
+        return list(self._session.scalars(stmt).all())
 
     def mark_notified(self, link: Link) -> None:
         link.notified_at = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
@@ -221,24 +210,18 @@ class SqlBlockedLinkRepository:
         self._session = session
 
     def find_by_blocker_and_username(self, blocker_id: int, username: str) -> BlockedLink | None:
-        return (
-            self._session.query(BlockedLink)
-            .filter(
-                BlockedLink.participant_id == blocker_id,
-                BlockedLink.blocked_username == username,
-            )
-            .first()
+        stmt = select(BlockedLink).where(
+            BlockedLink.participant_id == blocker_id,
+            BlockedLink.blocked_username == username,
         )
+        return self._session.scalars(stmt).first()
 
     def find_by_ids(self, id_list: list[int]) -> BlockedLink | None:
-        return (
-            self._session.query(BlockedLink)
-            .filter(
-                BlockedLink.participant_id.in_(id_list),
-                BlockedLink.blocked_id.in_(id_list),
-            )
-            .first()
+        stmt = select(BlockedLink).where(
+            BlockedLink.participant_id.in_(id_list),
+            BlockedLink.blocked_id.in_(id_list),
         )
+        return self._session.scalars(stmt).first()
 
     def create_by_username(self, participant_id: int, blocked_username: str) -> BlockedLink:
         bl = BlockedLink(participant_id=participant_id, blocked_username=blocked_username)
@@ -253,28 +236,29 @@ class SqlBlockedLinkRepository:
         return bl
 
     def find_for_allow(self, participant_id: int, username: str, blocked_id: int) -> BlockedLink | None:
-        return (
-            self._session.query(BlockedLink)
+        stmt = (
+            select(BlockedLink)
             .join(BlockedLink.blocked, isouter=True)
-            .filter(BlockedLink.participant_id == participant_id)
-            .filter(
+            .where(
+                BlockedLink.participant_id == participant_id,
                 or_(
                     BlockedLink.blocked_username == username,
                     BlockedLink.blocked_id == blocked_id,
-                )
+                ),
             )
-            .first()
         )
+        return self._session.scalars(stmt).first()
 
     def delete(self, blocked_link: BlockedLink) -> None:
         self._session.delete(blocked_link)
         self._session.commit()
 
     def get_by_participant_ids(self, participant_ids: list[int]) -> list[BlockedLink]:
-        return self._session.query(BlockedLink).filter(BlockedLink.participant_id.in_(participant_ids)).all()
+        stmt = select(BlockedLink).where(BlockedLink.participant_id.in_(participant_ids))
+        return list(self._session.scalars(stmt).all())
 
     def resolve_pending_block(self, username: str, participant_id: int) -> None:
-        bl = self._session.query(BlockedLink).filter(BlockedLink.blocked_username == username).first()
+        bl = self._session.scalars(select(BlockedLink).where(BlockedLink.blocked_username == username)).first()
         if bl is not None:
             bl.blocked_id = participant_id
             bl.blocked_username = None

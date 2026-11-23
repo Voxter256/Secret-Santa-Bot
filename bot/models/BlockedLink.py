@@ -1,7 +1,8 @@
 from sqlalchemy import ForeignKey, Integer, String
-from sqlalchemy.orm import Mapped, backref, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from bot.Base import Base
+from bot.models.Participant import Participant
 
 
 class BlockedLink(Base):
@@ -17,5 +18,5 @@ class BlockedLink(Base):
         nullable=True,
     )
 
-    blocker = relationship("Participant", uselist=False, backref=backref("blocker_link"), foreign_keys=participant_id)
-    blocked = relationship("Participant", uselist=False, backref=backref("blocked_link"), foreign_keys=blocked_id)
+    blocker: Mapped[Participant | None] = relationship(back_populates="blocker_link", foreign_keys=participant_id)
+    blocked: Mapped[Participant | None] = relationship(back_populates="blocked_link", foreign_keys=blocked_id)

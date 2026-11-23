@@ -1,10 +1,11 @@
 import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Text
-from sqlalchemy.orm import Mapped, backref, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from bot.Base import Base
+from bot.models.Group import Group
 
 
 class ExchangeEvent(Base):
@@ -17,4 +18,4 @@ class ExchangeEvent(Base):
     attempt_data: Mapped[str | None] = mapped_column(Text, nullable=True)
     retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
-    group = relationship("Group", uselist=False, backref=backref("exchange_events"), foreign_keys=group_id)
+    group: Mapped[Group] = relationship(back_populates="exchange_events", foreign_keys=group_id)

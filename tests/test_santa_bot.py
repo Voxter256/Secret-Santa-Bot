@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from alembic.config import Config
 from alembic.script import ScriptDirectory
-from sqlalchemy import inspect, text
+from sqlalchemy import func, inspect, select, text
 from telegram import ForceReply
 from telegram.error import BadRequest, Forbidden
 
@@ -341,7 +341,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         await self.bot.join(update, Mock())
         mock_reply.assert_called_with(update=update, text="OK, you're in!")
         mock_send.assert_not_called()
-        self.assertEqual(self.bot.session.query(Link).count(), 1)
+        self.assertEqual(self.bot.session.scalar(select(func.count()).select_from(Link)), 1)
 
     @patch.object(SantaBot, "reply_message")
     @patch.object(SantaBot, "send_message")
@@ -444,9 +444,11 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         context = Mock()
         await self.bot.join(update, context)
         mock_reply.assert_called_with(update=update, text="OK, you're in!")
-        participant = self.bot.session.query(Participant).filter(Participant.telegram_id == 10).first()
-        group = self.bot.session.query(Group).filter(Group.telegram_id == 1).first()
-        link = self.bot.session.query(Link).filter(Link.santa_id == participant.id, Link.group_id == group.id).first()
+        participant = self.bot.session.scalars(select(Participant).where(Participant.telegram_id == 10)).first()
+        group = self.bot.session.scalars(select(Group).where(Group.telegram_id == 1)).first()
+        link = self.bot.session.scalars(
+            select(Link).where(Link.santa_id == participant.id, Link.group_id == group.id)
+        ).first()
         self.assertIsNotNone(link)
 
     @patch.object(SantaBot, "reply_message")
@@ -488,7 +490,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         context = Mock()
         await self.bot.leave(update, context)
         mock_reply.assert_called_with(update=update, text="Done.")
-        link = self.bot.session.query(Link).filter(Link.santa_id == p.id).first()
+        link = self.bot.session.scalars(select(Link).where(Link.santa_id == p.id)).first()
         self.assertIsNone(link)
 
     # -- not_command handler tests --
@@ -506,11 +508,9 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         update.effective_message.parse_entities.return_value = {entity_mock: "@BlockedUser"}
         context = Mock()
         await self.bot.not_command(update, context)
-        blocked_link = (
-            self.bot.session.query(BlockedLink)
-            .filter(BlockedLink.participant_id == p.id, BlockedLink.blocked_username == "BlockedUser")
-            .first()
-        )
+        blocked_link = self.bot.session.scalars(
+            select(BlockedLink).where(BlockedLink.participant_id == p.id, BlockedLink.blocked_username == "BlockedUser")
+        ).first()
         self.assertIsNotNone(blocked_link)
 
     @patch.object(SantaBot, "reply_message")
@@ -528,11 +528,9 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         update.effective_message.parse_entities.return_value = {entity_mock: "UserB"}
         context = Mock()
         await self.bot.not_command(update, context)
-        blocked_link = (
-            self.bot.session.query(BlockedLink)
-            .filter(BlockedLink.participant_id == p1.id, BlockedLink.blocked_id == p2.id)
-            .first()
-        )
+        blocked_link = self.bot.session.scalars(
+            select(BlockedLink).where(BlockedLink.participant_id == p1.id, BlockedLink.blocked_id == p2.id)
+        ).first()
         self.assertIsNotNone(blocked_link)
         mock_reply.assert_called_with(update=update, text="OK, you can no longer matched with that participant.")
 
@@ -570,11 +568,9 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         update.effective_message.parse_entities.return_value = {entity_mock: "@BlockedUser"}
         context = Mock()
         await self.bot.allow(update, context)
-        blocked_link = (
-            self.bot.session.query(BlockedLink)
-            .filter(BlockedLink.participant_id == p.id, BlockedLink.blocked_username == "BlockedUser")
-            .first()
-        )
+        blocked_link = self.bot.session.scalars(
+            select(BlockedLink).where(BlockedLink.participant_id == p.id, BlockedLink.blocked_username == "BlockedUser")
+        ).first()
         self.assertIsNone(blocked_link)
         mock_reply.assert_called_with(update=update, text="You can now be assigned to @BlockedUser")
 
@@ -897,7 +893,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         self.bot.session.refresh(link)
         self.assertEqual(link.receiver_id, receiver.id)
         self.assertIsNotNone(link.assigned_at)
-        self.assertIsNone(self.bot.session.query(Link).filter(Link.santa_id == ghost.id).first())
+        self.assertIsNone(self.bot.session.scalars(select(Link).where(Link.santa_id == ghost.id)).first())
 
     @staticmethod
     def _member(name):
@@ -1210,7 +1206,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         text = mock_reply.call_args.kwargs["text"]
         self.assertIn("no wishlist", text)
         self.assertIn("@Santa", text)
-        link = self.bot.session.query(Link).first()
+        link = self.bot.session.scalars(select(Link)).first()
         self.assertIsNone(link.receiver_id)
 
     @patch.object(SantaBot, "reply_message")
@@ -1225,7 +1221,7 @@ class TestSantaBotHandlers(MigratedDatabaseTestCase):
         update.effective_chat.get_member = AsyncMock(return_value=Mock())
         with patch.object(SantaBot, "send_message", new_callable=AsyncMock):
             await self.bot.start_exchange(update, Mock(args=["confirm"]))
-        links = self.bot.session.query(Link).all()
+        links = list(self.bot.session.scalars(select(Link)).all())
         self.assertTrue(all(link.receiver_id is not None for link in links))
 
     async def test_delivery_includes_wishlist_when_enabled(self):
@@ -1374,7 +1370,7 @@ class TestFeedbackHandler(MigratedDatabaseTestCase):
         mock_expired.return_value = False
         await self.bot.feedback(self._update(), Mock())
 
-        record = self.bot.session.query(Feedback).one()
+        record = self.bot.session.scalars(select(Feedback)).one()
         self.assertEqual(record.body, "the status command said finished")
         self.assertEqual(record.telegram_id, 10)
         self.assertIsNotNone(record.forwarded_at)
@@ -1394,7 +1390,7 @@ class TestFeedbackHandler(MigratedDatabaseTestCase):
         self.bot.feedback_chat_id = None
         await self.bot.feedback(self._update(), Mock())
 
-        record = self.bot.session.query(Feedback).one()
+        record = self.bot.session.scalars(select(Feedback)).one()
         self.assertEqual(record.body, "the status command said finished")
         self.assertIsNone(record.forwarded_at)
         mock_send.assert_not_called()
@@ -1407,7 +1403,7 @@ class TestFeedbackHandler(MigratedDatabaseTestCase):
         mock_expired.return_value = False
         await self.bot.feedback(self._update("/feedback"), Mock())
 
-        self.assertEqual(self.bot.session.query(Feedback).count(), 0)
+        self.assertEqual(self.bot.session.scalar(select(func.count()).select_from(Feedback)), 0)
         mock_send.assert_not_called()
         self.assertIn("/feedback <message>", mock_reply.call_args.kwargs["text"])
 
@@ -1418,7 +1414,7 @@ class TestFeedbackHandler(MigratedDatabaseTestCase):
         mock_expired.return_value = False
         await self.bot.feedback(self._update("/feedback " + "x" * 3501), Mock())
 
-        self.assertEqual(self.bot.session.query(Feedback).count(), 0)
+        self.assertEqual(self.bot.session.scalar(select(func.count()).select_from(Feedback)), 0)
         mock_send.assert_not_called()
         self.assertIn("3500", mock_reply.call_args.kwargs["text"])
 
@@ -1430,7 +1426,7 @@ class TestFeedbackHandler(MigratedDatabaseTestCase):
         mock_send.side_effect = Forbidden("bot was blocked by the user")
         await self.bot.feedback(self._update(), Mock())
 
-        record = self.bot.session.query(Feedback).one()
+        record = self.bot.session.scalars(select(Feedback)).one()
         self.assertEqual(record.body, "the status command said finished")
         self.assertIsNone(record.forwarded_at)
         self.assertEqual(mock_reply.call_args.kwargs["text"], "Thanks, I saved your feedback.")
@@ -1442,5 +1438,5 @@ class TestFeedbackHandler(MigratedDatabaseTestCase):
         mock_expired.return_value = False
         await self.bot.feedback(self._update("/feedback first line\nsecond line"), Mock())
 
-        record = self.bot.session.query(Feedback).one()
+        record = self.bot.session.scalars(select(Feedback)).one()
         self.assertEqual(record.body, "first line\nsecond line")

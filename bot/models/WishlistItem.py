@@ -1,10 +1,12 @@
 import datetime
 
 from sqlalchemy import DateTime, ForeignKey, Index, Integer, String
-from sqlalchemy.orm import Mapped, backref, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from bot.Base import Base
+from bot.models.Group import Group
+from bot.models.Participant import Participant
 
 
 class WishlistItem(Base):
@@ -17,15 +19,11 @@ class WishlistItem(Base):
     details: Mapped[str] = mapped_column(String(2048), nullable=False)
     created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=func.now())
 
-    participant = relationship(
-        "Participant",
-        uselist=False,
-        backref=backref("wishlist_items"),
+    participant: Mapped[Participant] = relationship(
+        back_populates="wishlist_items",
         foreign_keys=participant_id,
     )
-    group = relationship(
-        "Group",
-        uselist=False,
-        backref=backref("wishlist_items"),
+    group: Mapped[Group] = relationship(
+        back_populates="wishlist_items",
         foreign_keys=group_id,
     )
