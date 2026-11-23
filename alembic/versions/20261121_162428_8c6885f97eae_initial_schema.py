@@ -74,6 +74,9 @@ def upgrade() -> None:
         sa.Column("receiver_id", sa.Integer(), nullable=True),
         sa.Column("group_id", sa.Integer(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
+        sa.ForeignKeyConstraint(["santa_id"], ["participants.id"]),
+        sa.ForeignKeyConstraint(["receiver_id"], ["participants.id"]),
+        sa.ForeignKeyConstraint(["group_id"], ["groups.id"]),
     )
     _create_index_if_not_exists("ix_links_santa_id", "links", ["santa_id"])
     _create_index_if_not_exists("ix_links_receiver_id", "links", ["receiver_id"])
@@ -87,6 +90,8 @@ def upgrade() -> None:
         sa.Column("blocked_username", sa.String(32), nullable=True),
         sa.Column("blocked_id", sa.Integer(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
+        sa.ForeignKeyConstraint(["participant_id"], ["participants.id"]),
+        sa.ForeignKeyConstraint(["blocked_id"], ["participants.id"]),
     )
     _create_index_if_not_exists(
         "ix_blocked_links_participant_id",
