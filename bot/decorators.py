@@ -1,5 +1,6 @@
 import functools
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 
 def rejects_stale_updates(handler: Callable[..., Any]) -> Callable[..., Any]:

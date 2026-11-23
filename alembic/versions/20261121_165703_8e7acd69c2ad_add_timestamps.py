@@ -7,16 +7,15 @@ Create Date: 2026-11-21 16:53:33.263632
 """
 
 from collections.abc import Sequence
-from typing import Union
 
 import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "8e7acd69c2ad"
-down_revision: Union[str, Sequence[str], None] = "8c6885f97eae"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = "8c6885f97eae"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def _column_exists(tablename: str, colname: str) -> bool:

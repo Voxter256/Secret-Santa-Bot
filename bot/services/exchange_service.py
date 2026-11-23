@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime
 import uuid
-from typing import Callable
+from collections.abc import Callable
 
 from bot.models.Link import Link
 from bot.models.Participant import Participant
@@ -91,7 +91,7 @@ class ExchangeService:
 
     def mark_group_left(self, chat_id: int) -> None:
         """Record that the bot lost access; data is kept for audit."""
-        self._groups.set_left_at(chat_id, datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None))
+        self._groups.set_left_at(chat_id, datetime.datetime.now(datetime.UTC).replace(tzinfo=None))
 
     def mark_group_active(self, chat_id: int) -> None:
         """Clear the flag if the bot is added back."""

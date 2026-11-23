@@ -5,10 +5,10 @@ import pathlib
 import random
 import uuid
 from collections import defaultdict
+from collections.abc import Callable
 from copy import deepcopy
 from gettext import find, translation
 from itertools import permutations
-from typing import Callable
 
 from telegram import (
     Chat,
@@ -1188,8 +1188,8 @@ class SantaBot:
         try:
             sent_at = message.date
             if sent_at.tzinfo is None:
-                sent_at = sent_at.replace(tzinfo=datetime.timezone.utc)
-            age_seconds = (datetime.datetime.now(datetime.timezone.utc) - sent_at).total_seconds()
+                sent_at = sent_at.replace(tzinfo=datetime.UTC)
+            age_seconds = (datetime.datetime.now(datetime.UTC) - sent_at).total_seconds()
         except Exception as this_ex:
             logging.warning(f"Discarding {label}: unreadable timestamp ({this_ex!r})")
             return True

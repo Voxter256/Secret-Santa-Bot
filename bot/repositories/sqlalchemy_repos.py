@@ -168,7 +168,7 @@ class SqlLinkRepository:
 
     def set_pairing(self, group_id: int, pairing: dict[int, int]) -> None:
         """Persist the whole pairing in one transaction, before anything is sent."""
-        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        now = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
         for santa_id, receiver_id in pairing.items():
             link = self.get_by_santa_and_group(santa_id, group_id)
             if link is None:
@@ -191,7 +191,7 @@ class SqlLinkRepository:
         return list(self._session.scalars(stmt).all())
 
     def mark_notified(self, link: Link) -> None:
-        link.notified_at = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        link.notified_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
         self._session.commit()
 
     def clear_receivers_in_group(self, group_id: int) -> None:
@@ -293,5 +293,5 @@ class SqlFeedbackRepository:
         record = self._session.get(Feedback, feedback_id)
         if record is None:
             return
-        record.forwarded_at = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        record.forwarded_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
         self._session.commit()

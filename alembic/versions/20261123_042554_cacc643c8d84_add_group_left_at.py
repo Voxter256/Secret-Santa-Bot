@@ -10,16 +10,15 @@ identified without deleting them. Reversible: re-adding the bot clears it.
 """
 
 from collections.abc import Sequence
-from typing import Union
 
 import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "cacc643c8d84"
-down_revision: Union[str, Sequence[str], None] = "77094013c363"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = "77094013c363"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def _column_exists(tablename: str, colname: str) -> bool:

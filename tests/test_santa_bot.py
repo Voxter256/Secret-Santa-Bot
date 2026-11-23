@@ -51,7 +51,7 @@ class MigratedDatabaseTestCase(unittest.IsolatedAsyncioTestCase):
         update.effective_user.language_code = language_code
         update.effective_message.text = ""
         if message_date is None:
-            message_date = datetime.datetime.now(datetime.timezone.utc)
+            message_date = datetime.datetime.now(datetime.UTC)
         update.effective_message.date = message_date
         update.effective_message.reply_to_message = None
         return update
@@ -1273,13 +1273,13 @@ class TestUpdateAgeLimit(MigratedDatabaseTestCase):
     def test_update_within_limit_is_accepted(self) -> None:
         self.bot.max_message_age_seconds = 120
         update = MagicMock()
-        update.effective_message.date = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=30)
+        update.effective_message.date = datetime.datetime.now(datetime.UTC) - datetime.timedelta(seconds=30)
         self.assertFalse(self.bot.is_update_expired(update))
 
     def test_update_past_limit_is_rejected(self) -> None:
         self.bot.max_message_age_seconds = 120
         update = MagicMock()
-        update.effective_message.date = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=600)
+        update.effective_message.date = datetime.datetime.now(datetime.UTC) - datetime.timedelta(seconds=600)
         self.assertTrue(self.bot.is_update_expired(update))
 
     def test_unreadable_update_is_treated_as_expired(self) -> None:
@@ -1295,7 +1295,7 @@ class TestUpdateAgeLimit(MigratedDatabaseTestCase):
         update.effective_user.id = 77
         update.effective_user.username = "tester"
         update.effective_message.text = "/join"
-        update.effective_message.date = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=600)
+        update.effective_message.date = datetime.datetime.now(datetime.UTC) - datetime.timedelta(seconds=600)
 
         with self.assertLogs(level="WARNING") as captured:
             expired = self.bot.is_update_expired(update, handler_name="join")
@@ -1309,7 +1309,7 @@ class TestUpdateAgeLimit(MigratedDatabaseTestCase):
     def test_fresh_update_logs_nothing(self) -> None:
         self.bot.max_message_age_seconds = 120
         update = MagicMock()
-        update.effective_message.date = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=5)
+        update.effective_message.date = datetime.datetime.now(datetime.UTC) - datetime.timedelta(seconds=5)
         with self.assertNoLogs(level="WARNING"):
             self.assertFalse(self.bot.is_update_expired(update))
 
