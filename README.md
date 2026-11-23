@@ -19,11 +19,39 @@ Christmas can be stressful if you have to find gifts for everyone all within you
 
 ## Installation
 
-Copy the default_config.ini to config.ini and insert your telegram token from the BotFather
+Requires Python 3.9+ and [uv](https://docs.astral.sh/uv/).
 
-This Bot currently uses SQLite and the following python plugins from pip:
-SQLAlchemy
-python-telegram-bot
+    uv sync
+    export TELEGRAM_BOT_TOKEN="<token from @BotFather>"
+    uv run python run.py
+
+The first run creates `bot.sqlite` when it is missing and applies the Alembic migrations before the bot starts, so an existing database is upgraded rather than rejected.
+
+### Configuration
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `TELEGRAM_BOT_TOKEN` | required | Token from @BotFather. |
+| `MESSAGE_MAX_AGE_SECONDS` | `60` | Updates older than this are discarded, so a restart does not act on messages queued while it was down. |
+| `DATABASE_URL` | unset | Database used by the AWS Lambda entrypoint. The local entrypoint (`run.py`) uses `bot.sqlite` in the working directory and ignores it. |
+
+### Docker
+
+    docker compose up --build
+
+`docker-compose.yaml` bind-mounts the working tree into the container and passes the same variables through. Put `TELEGRAM_BOT_TOKEN` in `.env` first.
+
+### Dependencies
+
+Runtime: `python-telegram-bot`, `SQLAlchemy`, `Alembic`, and `mysql-connector-python` for non-SQLite deployments. Development adds `pytest`, `ruff`, `mypy`, `pre-commit`, and `Babel`; `pre-commit install` wires the hooks that run before every commit.
+
+### Translations
+
+Catalogs live in `bot/locale/<lang>/LC_MESSAGES/`. Both the `.po` sources and the compiled `.mo` files are committed, so a string change needs the catalog recompiled with Babel before it takes effect.
+
+### Logs
+
+`santabot.log` is written in the working directory and rotates weekly, keeping 52 files — about a year. Rotation is triggered by a write rather than a timer, so an idle bot keeps its last file. The active and rotated files are created `0600`.
 
 ## API Reference
 
