@@ -28,5 +28,12 @@ class LocalSantaBot(SantaBot):
         for handler in self.handlers:
             application.add_handler(handler)
 
+        # One line that makes a stale or duplicate instance obvious: the pid
+        # and the exact log file this process holds open. A renamed log file
+        # keeps receiving writes from the process that already has it open, so
+        # "no log output" can otherwise mean "wrong file", not "not running".
+        log_file = next((h.baseFilename for h in logging.getLogger().handlers if hasattr(h, "baseFilename")), None)
+        logging.info(f"SantaBot starting | pid {os.getpid()} | bot id {self.bot_id} | logging to {log_file}")
+
         application.run_polling()
         print("running")
